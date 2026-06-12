@@ -19,10 +19,11 @@ Podman context.
 
 ### Managed
 
-- Podman package installation when `quadlet_manage_packages` is enabled
+- Podman package installation
 - Dedicated Unix service users and matching primary groups
 - Subordinate UID/GID allocation for newly created service users through system shadow-utils defaults
 - Root-owned user Quadlet directories below `/etc/containers/systemd/users/<UID>/`
+- Root-owned Quadlet `.pod` files for rootless Podman pods
 - Root-owned Quadlet `.container` files for rootless user services
 - Non-secret EnvironmentFiles below `/srv/containers/<container>/env/` by default
 - Default application data directories below `/srv/containers/<container>/data`
@@ -62,13 +63,12 @@ The following variables are part of the public role interface.
 
 | Name | Type | Required | Default | Description |
 | ---- | ---- | -------- | ------- | ----------- |
-| `quadlet_packages` | `list` | `false` | - podman | Platform packages required for Podman and Quadlet support. |
-| `quadlet_manage_packages` | `bool` | `false` | `True` | Whether the role installs `quadlet_packages`. |
-| `quadlet_users` | `list` | `false` | [] | Service users and rootless containers managed by this role. |
+| `quadlet_users` | `list` | `false` | [] | Service users and rootless Podman Quadlets managed by this role. |
 
 ## Managed Files
 
 - `/etc/containers/systemd/users/<UID>/<container>.container` root-owned rootless user Quadlet
+- `/etc/containers/systemd/users/<UID>/<pod>.pod` root-owned rootless pod Quadlet
 - `/srv/containers/<container>/env/<container>.env` non-secret EnvironmentFile
 - `/srv/containers/<container>/data` default application data directory
 
@@ -81,10 +81,14 @@ not cover the required rootless Podman and subordinate-ID behavior.
 
 ## Service Behavior
 
-Generated services are user services named `<name>.service` from
-`<name>.container`. When a Quadlet changes and service management is active,
-the role reloads the service user's systemd manager through the
-`ansible.builtin.systemd_service` module with `scope: user`.
+Generated container services are user services named `<name>.service` from
+`<name>.container`. Generated pod services default to `<name>-pod.service`
+from `<name>.pod`, unless the pod sets `service_name`. When a Quadlet changes
+and service management is active, the role reloads the service user's systemd
+manager through the `ansible.builtin.systemd_service` module with `scope: user`.
+Container and pod items support `restart_policy`, `restart_sec`,
+`timeout_start_sec`, and repeated `exec_start_pre` commands in the generated
+`[Service]` section.
 
 ## Security Notes
 
@@ -103,9 +107,17 @@ the role reloads the service user's systemd manager through the
 ## Operational Notes
 
 - Use file-based application settings such as `*_FILE=/run/secrets/<secret>` whenever the application supports them.
+- Declare shared pod-level port publishing, networks, DNS settings, and volumes under `pods`.
+- Set a container `pod` value to a pod unit base name such as `app` or to the explicit Quadlet unit name `app.pod`; both render `Pod=app.pod`.
+- Containers with `pod` set render `StartWithPod=true` by default, so starting the pod service starts the associated containers.
+- When a pod owns the lifecycle, set pod `enabled` and `state` on the pod and use container `enabled: false` with `state: created` for file-only container units.
+- Use `exec_start_pre` for local dependency checks such as `pg_isready` before Podman starts the container service.
+- `restart_policy` renders `Restart=`, `restart_sec` renders `RestartSec=`, and `timeout_start_sec` renders `TimeoutStartSec=`.
 - `type: mount` renders `Secret=<name>` or `Secret=<name>,target=<target>` and lets Podman mount the secret as a file.
 - `type: env` renders `Secret=<name>,type=env,target=<ENV_NAME>` and exposes the secret through the container environment.
 - EnvironmentFile entries render ordinary `KEY="value"` settings and must not contain passwords, tokens, API keys, or private material.
+- Use `value: "{{ vault_secret_name }}"` with encrypted inventory or Ansible Vault when the role should create a Podman secret.
+- `value_file` is a remote Managed Host path and should only be used when another trusted process provisions that root-readable file before this role runs.
 - If neither `value` nor `value_file` is set for a secret, the role only references the secret in the Quadlet and assumes it already exists in the service user's rootless Podman context.
 - The role does not parse or modify `/etc/login.defs`; subordinate ID count and ranges come from the target system's shadow-utils defaults.
 - `useradd` allocates subordinate IDs only for newly created users. Existing service users must already have suitable rootless Podman mappings.
@@ -151,19 +163,99 @@ only `_FILE` references, and the Quadlet contains `Secret=` references.
                   VIKUNJA_SERVICE_SECRET_FILE: /run/secrets/vikunja_service_secret
                 secrets:
                   - name: vikunja_db_password
-                    value_file: /root/ansible-secrets/vikunja_db_password
+                    value: "{{ vault_vikunja_db_password }}"
                   - name: vikunja_service_secret
-                    value_file: /root/ansible-secrets/vikunja_service_secret
+                    value: "{{ vault_vikunja_service_secret }}"
                 volumes:
                   - /srv/containers/vikunja/data:/app/vikunja/files:Z
                 ports:
                   - 127.0.0.1:3456:3456
 ```
+### App container waiting for local PostgreSQL
+
+The PostgreSQL service runs on the container host. The application
+container waits for PostgreSQL before Podman starts the container.
+
+```yaml
+---
+- name: Deploy an app container using host-local PostgreSQL
+  hosts: quadlet
+  gather_facts: true
+  roles:
+    - role: jomrr.quadlet
+      vars:
+        quadlet_users:
+          - name: vaultwarden
+            uid: 24020
+            containers:
+              - name: vaultwarden
+                image: docker.io/vaultwarden/server:latest
+                container_name: vaultwarden
+                environment:
+                  DATABASE_URL: postgresql://vaultwarden@host.container.local:5432/vaultwarden
+                  DOMAIN: https://vault.example.org
+                secrets:
+                  - name: vaultwarden_admin_token
+                    type: env
+                    env_target: ADMIN_TOKEN
+                    value: "{{ vault_vaultwarden_admin_token }}"
+                volumes:
+                  - /srv/containers/vaultwarden/data:/data:Z
+                ports:
+                  - 127.0.0.1:8080:80
+                exec_start_pre:
+                  - /bin/bash -c 'until pg_isready -h POSTGRES_PUBLIC_IP -p 5432 -U vaultwarden; do sleep 10; done;'
+                restart_policy: on-failure
+                restart_sec: 10s
+                timeout_start_sec: 300
+```
+### Compose-style application pod
+
+A Podman pod Quadlet owns the shared network namespace and port publishing.
+Containers join the pod through `Pod=<name>.pod` and are started with the pod.
+
+```yaml
+---
+- name: Deploy an application pod as rootless Quadlets
+  hosts: quadlet
+  gather_facts: true
+  roles:
+    - role: jomrr.quadlet
+      vars:
+        quadlet_users:
+          - name: vikunja
+            uid: 24010
+            pods:
+              - name: vikunja
+                ports:
+                  - 127.0.0.1:3456:3456
+                networks:
+                  - pasta
+            containers:
+              - name: vikunja
+                image: docker.io/vikunja/vikunja:latest
+                container_name: vikunja
+                pod: vikunja
+                environment:
+                  VIKUNJA_DATABASE_TYPE: postgres
+                  VIKUNJA_DATABASE_HOST: 127.0.0.1
+                  VIKUNJA_DATABASE_PASSWORD_FILE: /run/secrets/vikunja_db_password
+                  VIKUNJA_SERVICE_SECRET_FILE: /run/secrets/vikunja_service_secret
+                secrets:
+                  - name: vikunja_db_password
+                    value: "{{ vault_vikunja_db_password }}"
+                  - name: vikunja_service_secret
+                    value: "{{ vault_vikunja_service_secret }}"
+                volumes:
+                  - /srv/containers/vikunja/data:/app/vikunja/files:Z
+                enabled: false
+                state: created
+```
 ### Vaultwarden ADMIN_TOKEN as explicit env fallback
 
 Use `type: env` only when a clean file-based variant is not available for
-the application setting. Prefer a `value_file` or encrypted inventory
-source over plaintext values.
+the application setting. Prefer encrypted inventory or Ansible Vault
+variables over plaintext values.
 
 ```yaml
 ---
@@ -187,7 +279,7 @@ source over plaintext values.
                   - name: vaultwarden_admin_token
                     type: env
                     env_target: ADMIN_TOKEN
-                    value_file: /root/ansible-secrets/vaultwarden_admin_token
+                    value: "{{ vault_vaultwarden_admin_token }}"
                 volumes:
                   - /srv/containers/vaultwarden/data:/data:Z
                 ports:

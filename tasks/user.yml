@@ -7,20 +7,27 @@
     that:
       - quadlet_user.name is defined
       - quadlet_user.name | length > 0
+      - quadlet_user.pods | default([]) is sequence
       - quadlet_user.containers | default([]) is sequence
-    fail_msg: "Each quadlet_users item needs a name and a containers list."
+    fail_msg: "Each quadlet_users item needs a name; pods and containers must be lists."
 
 - name: "Quadlet | Set service user facts"
   ansible.builtin.set_fact:
     __quadlet_user_name: "{{ quadlet_user.name }}"
     __quadlet_user_home: "{{ quadlet_user.home | default('/var/lib/' ~ quadlet_user.name) }}"
     __quadlet_user_shell: "{{ quadlet_user.shell | default('/usr/sbin/nologin') }}"
+    __quadlet_user_pods: "{{ quadlet_user.pods | default([]) }}"
     __quadlet_user_containers: "{{ quadlet_user.containers | default([]) }}"
 
 - name: "Quadlet | Set service user service facts"
   ansible.builtin.set_fact:
     __quadlet_user_has_service_work: >-
       {%- set ns = namespace(value=false) -%}
+      {%- for pod in __quadlet_user_pods -%}
+      {%- if (pod.enabled | default(true) | bool) or (pod.state | default('started') != 'created') -%}
+      {%- set ns.value = true -%}
+      {%- endif -%}
+      {%- endfor -%}
       {%- for container in __quadlet_user_containers -%}
       {%- if (container.enabled | default(true) | bool) or (container.state | default('started') != 'created') -%}
       {%- set ns.value = true -%}
@@ -112,6 +119,13 @@
     name: "user@{{ __quadlet_user_uid }}.service"
     state: started
   when: __quadlet_user_has_service_work | bool
+
+- name: "Quadlet | Manage pods for service user"
+  ansible.builtin.include_tasks: pod.yml
+  loop: "{{ __quadlet_user_pods }}"
+  loop_control:
+    loop_var: quadlet_pod
+    label: "{{ quadlet_pod.name | default('unnamed') }}"
 
 - name: "Quadlet | Manage containers for service user"
   ansible.builtin.include_tasks: container.yml

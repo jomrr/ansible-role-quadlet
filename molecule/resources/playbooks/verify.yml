@@ -6,13 +6,21 @@
   hosts: all
   gather_facts: false
   vars:
+    __quadlet_verify_vikunja_pod: /etc/containers/systemd/users/24001/vikunja.pod
     __quadlet_verify_vikunja_quadlet: /etc/containers/systemd/users/24001/vikunja.container
     __quadlet_verify_vaultwarden_quadlet: /etc/containers/systemd/users/24002/vaultwarden.container
     __quadlet_verify_vikunja_env: /srv/containers/vikunja/env/vikunja.env
     __quadlet_verify_vaultwarden_env: /srv/containers/vaultwarden/env/vaultwarden.env
     __quadlet_verify_vikunja_linger: /var/lib/systemd/linger/quadlet_vikunja
     __quadlet_verify_vaultwarden_linger: /var/lib/systemd/linger/quadlet_vaultwarden
+    __quadlet_verify_vaultwarden_exec_start_pre: >-
+      ExecStartPre=/bin/bash -c 'until pg_isready -h POSTGRES_PUBLIC_IP -p 5432 -U vaultwarden; do sleep 10; done;'
   tasks:
+    - name: "Quadlet | Stat Vikunja Pod Quadlet"
+      ansible.builtin.stat:
+        path: "{{ __quadlet_verify_vikunja_pod }}"
+      register: __quadlet_verify_vikunja_pod_stat
+
     - name: "Quadlet | Stat Vikunja Quadlet"
       ansible.builtin.stat:
         path: "{{ __quadlet_verify_vikunja_quadlet }}"
@@ -26,6 +34,10 @@
     - name: "Quadlet | Assert Quadlets are root-owned user Quadlets"
       ansible.builtin.assert:
         that:
+          - __quadlet_verify_vikunja_pod_stat.stat.exists
+          - __quadlet_verify_vikunja_pod_stat.stat.uid == 0
+          - __quadlet_verify_vikunja_pod_stat.stat.gid == 0
+          - __quadlet_verify_vikunja_pod_stat.stat.mode == '0644'
           - __quadlet_verify_vikunja_quadlet_stat.stat.exists
           - __quadlet_verify_vikunja_quadlet_stat.stat.uid == 0
           - __quadlet_verify_vikunja_quadlet_stat.stat.gid == 0
@@ -46,6 +58,8 @@
           - "{{ item.path }}"
       changed_when: false
       loop:
+        - user: quadlet_vikunja
+          path: "{{ __quadlet_verify_vikunja_pod }}"
         - user: quadlet_vikunja
           path: "{{ __quadlet_verify_vikunja_quadlet }}"
         - user: quadlet_vaultwarden
@@ -76,6 +90,7 @@
         src: "{{ item }}"
       register: __quadlet_verify_files
       loop:
+        - "{{ __quadlet_verify_vikunja_pod }}"
         - "{{ __quadlet_verify_vikunja_quadlet }}"
         - "{{ __quadlet_verify_vaultwarden_quadlet }}"
         - "{{ __quadlet_verify_vikunja_env }}"
@@ -83,10 +98,11 @@
 
     - name: "Quadlet | Set generated file content facts"
       ansible.builtin.set_fact:
-        __quadlet_verify_vikunja_quadlet_content: "{{ __quadlet_verify_files.results[0].content | b64decode }}"
-        __quadlet_verify_vaultwarden_quadlet_content: "{{ __quadlet_verify_files.results[1].content | b64decode }}"
-        __quadlet_verify_vikunja_env_content: "{{ __quadlet_verify_files.results[2].content | b64decode }}"
-        __quadlet_verify_vaultwarden_env_content: "{{ __quadlet_verify_files.results[3].content | b64decode }}"
+        __quadlet_verify_vikunja_pod_content: "{{ __quadlet_verify_files.results[0].content | b64decode }}"
+        __quadlet_verify_vikunja_quadlet_content: "{{ __quadlet_verify_files.results[1].content | b64decode }}"
+        __quadlet_verify_vaultwarden_quadlet_content: "{{ __quadlet_verify_files.results[2].content | b64decode }}"
+        __quadlet_verify_vikunja_env_content: "{{ __quadlet_verify_files.results[3].content | b64decode }}"
+        __quadlet_verify_vaultwarden_env_content: "{{ __quadlet_verify_files.results[4].content | b64decode }}"
 
     - name: "Quadlet | Assert EnvironmentFiles do not contain secret values"
       ansible.builtin.assert:
@@ -103,6 +119,22 @@
           - "'Secret=vikunja_db_password' in __quadlet_verify_vikunja_quadlet_content"
           - "'Secret=vikunja_service_secret' in __quadlet_verify_vikunja_quadlet_content"
           - "'Secret=vaultwarden_admin_token,type=env,target=ADMIN_TOKEN' in __quadlet_verify_vaultwarden_quadlet_content"
+
+    - name: "Quadlet | Assert Pod references are rendered in Quadlets"
+      ansible.builtin.assert:
+        that:
+          - "'Pod=vikunja.pod' in __quadlet_verify_vikunja_quadlet_content"
+          - "'StartWithPod=true' in __quadlet_verify_vikunja_quadlet_content"
+          - "'PublishPort=127.0.0.1:3456:3456' in __quadlet_verify_vikunja_pod_content"
+          - "'Network=pasta' in __quadlet_verify_vikunja_pod_content"
+
+    - name: "Quadlet | Assert service options are rendered in Quadlets"
+      ansible.builtin.assert:
+        that:
+          - __quadlet_verify_vaultwarden_exec_start_pre in __quadlet_verify_vaultwarden_quadlet_content
+          - "'Restart=on-failure' in __quadlet_verify_vaultwarden_quadlet_content"
+          - "'RestartSec=10s' in __quadlet_verify_vaultwarden_quadlet_content"
+          - "'TimeoutStartSec=300' in __quadlet_verify_vaultwarden_quadlet_content"
 
     - name: "Quadlet | Stat service user linger markers"
       ansible.builtin.stat:
@@ -125,6 +157,7 @@
         path: "{{ item }}"
       register: __quadlet_verify_home_quadlets
       loop:
+        - /var/lib/quadlet_vikunja/.config/containers/systemd/vikunja.pod
         - /var/lib/quadlet_vikunja/.config/containers/systemd/vikunja.container
         - /var/lib/quadlet_vaultwarden/.config/containers/systemd/vaultwarden.container
 
@@ -141,6 +174,7 @@
         path: "{{ item }}"
       register: __quadlet_verify_rootful_quadlets
       loop:
+        - /etc/containers/systemd/vikunja.pod
         - /etc/containers/systemd/vikunja.container
         - /etc/containers/systemd/vaultwarden.container
 

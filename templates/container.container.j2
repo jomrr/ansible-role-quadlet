@@ -11,6 +11,11 @@ Image={{ quadlet_container.image }}
 Pull={{ quadlet_container.image_pull_policy }}
 {% endif %}
 ContainerName={{ quadlet_container.container_name | default(__quadlet_container_name) }}
+{% if quadlet_container.pod is defined %}
+{% set quadlet_container_pod = quadlet_container.pod | string %}
+Pod={{ quadlet_container_pod if quadlet_container_pod | regex_search('\.pod$') else quadlet_container_pod ~ '.pod' }}
+StartWithPod={{ (quadlet_container.start_with_pod | default(true) | bool) | ternary('true', 'false') }}
+{% endif %}
 EnvironmentFile={{ __quadlet_container_env_file }}
 {% for secret in quadlet_container.secrets | default([]) %}
 {% set secret_type = secret.type | default('mount') %}
@@ -74,7 +79,16 @@ Tmpfs={{ tmpfs }}
 {% endfor %}
 
 [Service]
+{% for command in quadlet_container.exec_start_pre | default([]) %}
+ExecStartPre={{ command }}
+{% endfor %}
 Restart={{ quadlet_container.restart_policy | default('always') }}
+{% if quadlet_container.restart_sec is defined %}
+RestartSec={{ quadlet_container.restart_sec }}
+{% endif %}
+{% if quadlet_container.timeout_start_sec is defined %}
+TimeoutStartSec={{ quadlet_container.timeout_start_sec }}
+{% endif %}
 
 [Install]
 {% set quadlet_wanted_by = quadlet_container.wanted_by | default('default.target') %}

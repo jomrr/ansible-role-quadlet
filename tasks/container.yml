@@ -9,12 +9,15 @@
       - quadlet_container.name | length > 0
       - quadlet_container.image is defined
       - quadlet_container.image | length > 0
+      - quadlet_container.pod is not defined or quadlet_container.pod | length > 0
+      - quadlet_container.start_with_pod is not defined or quadlet_container.pod is defined
       - quadlet_container.environment | default({}) is mapping
       - quadlet_container.secrets | default([]) is sequence
       - quadlet_container.volumes | default([]) is sequence
       - quadlet_container.ports | default([]) is sequence
       - quadlet_container.networks | default([]) is sequence
       - quadlet_container.tmpfs | default([]) is sequence
+      - quadlet_container.exec_start_pre | default([]) is sequence
     fail_msg: "Each container needs at least name and image; list and dict fields must use the documented types."
   no_log: "{{ quadlet_container.secrets | default([]) | selectattr('value', 'defined') | list | length > 0 }}"
 

@@ -28,10 +28,19 @@ provisioner:
         quadlet_users:
           - name: "quadlet_vikunja"
             uid: 24001
+            pods:
+              - name: "vikunja"
+                ports:
+                  - "127.0.0.1:3456:3456"
+                networks:
+                  - "pasta"
+                enabled: false
+                state: "created"
             containers:
               - name: "vikunja"
                 image: "localhost/vikunja:test"
                 container_name: "vikunja"
+                pod: "vikunja"
                 environment:
                   VIKUNJA_DATABASE_TYPE: "postgres"
                   VIKUNJA_DATABASE_PASSWORD_FILE: "/run/secrets/vikunja_db_password"
@@ -41,8 +50,6 @@ provisioner:
                   - name: "vikunja_service_secret"
                 volumes:
                   - "/srv/containers/vikunja/data:/app/vikunja/files:Z"
-                ports:
-                  - "127.0.0.1:3456:3456"
                 enabled: false
                 state: "created"
           - name: "quadlet_vaultwarden"
@@ -62,6 +69,11 @@ provisioner:
                   - "/srv/containers/vaultwarden/data:/data:Z"
                 ports:
                   - "127.0.0.1:8080:80"
+                exec_start_pre:
+                  - "/bin/bash -c 'until pg_isready -h POSTGRES_PUBLIC_IP -p 5432 -U vaultwarden; do sleep 10; done;'"
+                restart_policy: "on-failure"
+                restart_sec: "10s"
+                timeout_start_sec: 300
                 enabled: false
                 state: "created"
 verifier:

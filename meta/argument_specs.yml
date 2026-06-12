@@ -6,31 +6,19 @@ argument_specs:
   main:
     short_description: Deploy rootless Podman Quadlet application services
     description:
-      - Creates dedicated Unix service users for rootless Podman application containers.
+      - Creates dedicated Unix service users for rootless Podman application pods and containers.
       - Uses `useradd --add-subids-for-system` so shadow-utils allocates subordinate IDs
         from system defaults.
       - Renders root-owned user Quadlet files below `/etc/containers/systemd/users/<UID>/`.
       - Manages non-secret EnvironmentFiles and rootless Podman secret references.
       - Enables and starts generated user services when requested.
     options:
-      quadlet_packages:
-        type: list
-        elements: str
-        required: false
-        default:
-          - podman
-        description: Platform packages required for Podman and Quadlet support.
-      quadlet_manage_packages:
-        type: bool
-        required: false
-        default: true
-        description: Whether the role installs `quadlet_packages`.
       quadlet_users:
         type: list
         elements: dict
         required: false
         default: []
-        description: Service users and rootless containers managed by this role.
+        description: Service users and rootless Podman Quadlets managed by this role.
         options:
           name:
             type: str
@@ -49,6 +37,170 @@ argument_specs:
             required: false
             default: /usr/sbin/nologin
             description: Login shell for the service user.
+          pods:
+            type: list
+            elements: dict
+            required: false
+            default: []
+            description: Rootless Podman pod Quadlets managed for this service user.
+            options:
+              name:
+                type: str
+                required: true
+                description: Quadlet pod unit base name. The generated service is `<name>-pod.service`
+                  unless `service_name` is set.
+              pod_name:
+                type: str
+                required: false
+                description: Optional Podman pod name rendered as `PodName=`.
+              service_name:
+                type: str
+                required: false
+                description: Optional Quadlet `ServiceName=` override without the `.service`
+                  suffix.
+              hostname:
+                type: str
+                required: false
+                description: Optional pod hostname rendered as `HostName=`.
+              exit_policy:
+                type: str
+                required: false
+                default: stop
+                choices:
+                  - stop
+                  - continue
+                description: Pod exit policy rendered as `ExitPolicy=`.
+              ports:
+                type: list
+                elements: raw
+                required: false
+                default: []
+                description: Quadlet `PublishPort=` entries as strings or dictionaries.
+              networks:
+                type: list
+                elements: raw
+                required: false
+                default: []
+                description: Optional Quadlet `Network=` entries as strings or dictionaries
+                  with `name`.
+              volumes:
+                type: list
+                elements: raw
+                required: false
+                default: []
+                description: Quadlet `Volume=` entries as strings or dictionaries with source,
+                  target, and optional options.
+              labels:
+                type: list
+                elements: raw
+                required: false
+                default: []
+                description: Optional Quadlet `Label=` entries as strings or dictionaries
+                  with `key` and `value`.
+              add_hosts:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional Quadlet `AddHost=` entries.
+              dns:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional Quadlet `DNS=` entries.
+              dns_options:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional Quadlet `DNSOption=` entries.
+              dns_search:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional Quadlet `DNSSearch=` entries.
+              network_aliases:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional Quadlet `NetworkAlias=` entries.
+              shm_size:
+                type: str
+                required: false
+                description: Optional Quadlet `ShmSize=` value.
+              userns:
+                type: str
+                required: false
+                description: Optional Quadlet `UserNS=` value for all containers in the
+                  pod.
+              uid_maps:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional repeated Quadlet `UIDMap=` entries.
+              gid_maps:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional repeated Quadlet `GIDMap=` entries.
+              subuid_map:
+                type: str
+                required: false
+                description: Optional Quadlet `SubUIDMap=` value.
+              subgid_map:
+                type: str
+                required: false
+                description: Optional Quadlet `SubGIDMap=` value.
+              restart_policy:
+                type: str
+                required: false
+                default: always
+                description: Systemd `Restart=` policy written to the pod Quadlet `[Service]`
+                  section.
+              restart_sec:
+                type: raw
+                required: false
+                description: Optional systemd `RestartSec=` value written to the pod Quadlet
+                  `[Service]` section.
+              timeout_start_sec:
+                type: raw
+                required: false
+                description: Optional systemd `TimeoutStartSec=` value written to the pod
+                  Quadlet `[Service]` section.
+              exec_start_pre:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional repeated systemd `ExecStartPre=` commands written
+                  to the pod Quadlet `[Service]` section.
+              wanted_by:
+                type: raw
+                required: false
+                default: default.target
+                description: One or more systemd targets rendered as `WantedBy=`.
+              state:
+                type: str
+                required: false
+                default: started
+                choices:
+                  - created
+                  - reloaded
+                  - restarted
+                  - started
+                  - stopped
+                description: User pod service runtime state. `created` renders files without
+                  managing the service.
+              enabled:
+                type: bool
+                required: false
+                default: true
+                description: Whether the generated pod user service is enabled.
           containers:
             type: list
             elements: dict
@@ -72,6 +224,16 @@ argument_specs:
                 type: str
                 required: false
                 description: Podman container name. Defaults to `name`.
+              pod:
+                type: str
+                required: false
+                description: Optional pod Quadlet reference. Values without `.pod` are rendered
+                  as `<pod>.pod`.
+              start_with_pod:
+                type: bool
+                required: false
+                default: true
+                description: Value for Quadlet `StartWithPod=` when `pod` is set.
               environment:
                 type: dict
                 required: false
@@ -186,6 +348,23 @@ argument_specs:
                 default: always
                 description: Systemd `Restart=` policy written to the Quadlet `[Service]`
                   section.
+              restart_sec:
+                type: raw
+                required: false
+                description: Optional systemd `RestartSec=` value written to the Quadlet
+                  `[Service]` section.
+              timeout_start_sec:
+                type: raw
+                required: false
+                description: Optional systemd `TimeoutStartSec=` value written to the Quadlet
+                  `[Service]` section.
+              exec_start_pre:
+                type: list
+                elements: str
+                required: false
+                default: []
+                description: Optional repeated systemd `ExecStartPre=` commands written
+                  to the Quadlet `[Service]` section.
               wanted_by:
                 type: raw
                 required: false
