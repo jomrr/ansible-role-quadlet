@@ -1,0 +1,213 @@
+---
+# role: quadlet
+# file: meta/argument_specs.yml
+
+argument_specs:
+  main:
+    short_description: Deploy rootless Podman Quadlet application services
+    description:
+      - Creates dedicated Unix service users for rootless Podman application containers.
+      - Renders root-owned user Quadlet files below `/etc/containers/systemd/users/<UID>/`.
+      - Manages non-secret EnvironmentFiles and rootless Podman secret references.
+      - Enables and starts generated user services when requested.
+    options:
+      quadlet_packages:
+        type: list
+        elements: str
+        required: false
+        default:
+          - podman
+        description: Platform packages required for Podman and Quadlet support.
+      quadlet_manage_packages:
+        type: bool
+        required: false
+        default: true
+        description: Whether the role installs `quadlet_packages`.
+      quadlet_users:
+        type: list
+        elements: dict
+        required: false
+        default: []
+        description: Service users and rootless containers managed by this role.
+        options:
+          name:
+            type: str
+            required: true
+            description: Dedicated Unix service user name.
+          uid:
+            type: int
+            required: false
+            description: Optional numeric UID for the service user.
+          home:
+            type: path
+            required: false
+            description: Service user home directory. Defaults to `/var/lib/<name>`.
+          shell:
+            type: str
+            required: false
+            default: /usr/sbin/nologin
+            description: Login shell for the service user.
+          linger:
+            type: bool
+            required: false
+            default: true
+            description: Whether to enable systemd linger when user services are enabled.
+          containers:
+            type: list
+            elements: dict
+            required: false
+            default: []
+            description: Rootless Podman containers managed for this service user.
+            options:
+              name:
+                type: str
+                required: true
+                description: Quadlet unit base name. The generated service is `<name>.service`.
+              image:
+                type: str
+                required: true
+                description: Container image reference written to `Image=`.
+              image_pull_policy:
+                type: str
+                required: false
+                description: Optional Quadlet `Pull=` policy.
+              container_name:
+                type: str
+                required: false
+                description: Podman container name. Defaults to `name`.
+              environment:
+                type: dict
+                required: false
+                default: {}
+                description: Non-secret environment values rendered into the EnvironmentFile.
+              environment_file:
+                type: path
+                required: false
+                description: EnvironmentFile path. Defaults to `/srv/containers/<name>/env/<name>.env`.
+              secrets:
+                type: list
+                elements: dict
+                required: false
+                default: []
+                description: Podman secrets referenced by the Quadlet and optionally created
+                  in the service user's rootless Podman context.
+                options:
+                  name:
+                    type: str
+                    required: true
+                    description: Podman secret name.
+                  value:
+                    type: str
+                    required: false
+                    description: Optional secret value passed to `podman secret create`
+                      through stdin. Do not store plaintext secrets in unencrypted inventory.
+                  value_file:
+                    type: path
+                    required: false
+                    description: Optional remote file containing the secret value. Mutually
+                      exclusive with `value`.
+                  target:
+                    type: str
+                    required: false
+                    description: 'Optional Podman secret mount target for `type: mount`.'
+                  type:
+                    type: str
+                    required: false
+                    default: mount
+                    choices:
+                      - mount
+                      - env
+                    description: Podman secret presentation type. Prefer `mount`; use `env`
+                      only as an explicit fallback.
+                  env_target:
+                    type: str
+                    required: false
+                    description: 'Environment variable name for `type: env`.'
+                  recreate:
+                    type: bool
+                    required: false
+                    default: false
+                    description: Whether to remove and recreate an existing rootless Podman
+                      secret when a value or value_file is supplied.
+              volumes:
+                type: list
+                elements: raw
+                required: false
+                default: []
+                description: Quadlet `Volume=` entries as strings or dictionaries with source,
+                  target, and optional options.
+              ports:
+                type: list
+                elements: raw
+                required: false
+                default: []
+                description: Quadlet `PublishPort=` entries as strings or dictionaries.
+              networks:
+                type: list
+                elements: raw
+                required: false
+                default: []
+                description: Optional Quadlet `Network=` entries as strings or dictionaries
+                  with `name`.
+              read_only:
+                type: bool
+                required: false
+                default: true
+                description: Value for Quadlet `ReadOnly=`.
+              read_only_tmpfs:
+                type: bool
+                required: false
+                default: true
+                description: Value for Quadlet `ReadOnlyTmpfs=`.
+              no_new_privileges:
+                type: bool
+                required: false
+                default: true
+                description: Value for Quadlet `NoNewPrivileges=`.
+              drop_capabilities:
+                type: list
+                elements: str
+                required: false
+                default:
+                  - all
+                description: Capabilities rendered as repeated `DropCapability=` entries.
+              pids_limit:
+                type: int
+                required: false
+                default: 512
+                description: Value for Quadlet `PidsLimit=`.
+              tmpfs:
+                type: list
+                elements: raw
+                required: false
+                default: []
+                description: Quadlet `Tmpfs=` entries as strings or dictionaries with target
+                  and optional options.
+              restart_policy:
+                type: str
+                required: false
+                default: always
+                description: Systemd `Restart=` policy written to the Quadlet `[Service]`
+                  section.
+              wanted_by:
+                type: raw
+                required: false
+                default: default.target
+                description: One or more systemd targets rendered as `WantedBy=`.
+              state:
+                type: str
+                required: false
+                default: started
+                choices:
+                  - created
+                  - reloaded
+                  - restarted
+                  - started
+                  - stopped
+                description: User service runtime state. `created` renders files without
+                  managing the service.
+              enabled:
+                type: bool
+                required: false
+                default: true
+                description: Whether the generated user service is enabled.

@@ -1,0 +1,87 @@
+# Managed by Ansible.
+
+[Unit]
+Description={{ quadlet_container.description | default('Rootless Podman container ' ~ __quadlet_container_name) }}
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image={{ quadlet_container.image }}
+{% if quadlet_container.image_pull_policy is defined %}
+Pull={{ quadlet_container.image_pull_policy }}
+{% endif %}
+ContainerName={{ quadlet_container.container_name | default(__quadlet_container_name) }}
+EnvironmentFile={{ __quadlet_container_env_file }}
+{% for secret in quadlet_container.secrets | default([]) %}
+{% set secret_type = secret.type | default('mount') %}
+{% if secret_type == 'env' %}
+Secret={{ secret.name }},type=env,target={{ secret.env_target }}
+{% elif secret.target is defined %}
+Secret={{ secret.name }},target={{ secret.target }}
+{% else %}
+Secret={{ secret.name }}
+{% endif %}
+{% endfor %}
+{% for volume in quadlet_container.volumes | default([]) %}
+{% if volume is mapping %}
+{% set volume_source = volume.source | default(volume.src | default('')) %}
+{% set volume_target = volume.target | default(volume.dest | default(volume.destination | default(''))) %}
+{% if volume.options is defined %}
+{% set volume_options = volume.options if volume.options is string else volume.options | join(',') %}
+Volume={{ volume_source }}:{{ volume_target }}:{{ volume_options }}
+{% else %}
+Volume={{ volume_source }}:{{ volume_target }}
+{% endif %}
+{% else %}
+Volume={{ volume }}
+{% endif %}
+{% endfor %}
+{% for port in quadlet_container.ports | default([]) %}
+{% if port is mapping %}
+{% set publish_host_ip = (port.host_ip ~ ':') if port.host_ip is defined else '' %}
+{% set publish_host_port = port.host_port | default(port.published | default('')) %}
+{% set publish_container_port = port.container_port | default(port.target | default('')) %}
+PublishPort={{ publish_host_ip }}{{ publish_host_port }}:{{ publish_container_port }}{% if port.protocol is defined %}/{{ port.protocol }}{% endif %}
+{% else %}
+PublishPort={{ port }}
+{% endif %}
+{% endfor %}
+{% for network in quadlet_container.networks | default([]) %}
+{% if network is mapping %}
+Network={{ network.name }}
+{% else %}
+Network={{ network }}
+{% endif %}
+{% endfor %}
+ReadOnly={{ (quadlet_container.read_only | default(true) | bool) | ternary('true', 'false') }}
+ReadOnlyTmpfs={{ (quadlet_container.read_only_tmpfs | default(true) | bool) | ternary('true', 'false') }}
+NoNewPrivileges={{ (quadlet_container.no_new_privileges | default(true) | bool) | ternary('true', 'false') }}
+{% for capability in quadlet_container.drop_capabilities | default(['all']) %}
+DropCapability={{ capability }}
+{% endfor %}
+PidsLimit={{ quadlet_container.pids_limit | default(512) }}
+{% for tmpfs in quadlet_container.tmpfs | default([]) %}
+{% if tmpfs is mapping %}
+{% if tmpfs.options is defined %}
+{% set tmpfs_options = tmpfs.options if tmpfs.options is string else tmpfs.options | join(',') %}
+Tmpfs={{ tmpfs.target }}:{{ tmpfs_options }}
+{% else %}
+Tmpfs={{ tmpfs.target }}
+{% endif %}
+{% else %}
+Tmpfs={{ tmpfs }}
+{% endif %}
+{% endfor %}
+
+[Service]
+Restart={{ quadlet_container.restart_policy | default('always') }}
+
+[Install]
+{% set quadlet_wanted_by = quadlet_container.wanted_by | default('default.target') %}
+{% if quadlet_wanted_by is sequence and quadlet_wanted_by is not string %}
+{% for target in quadlet_wanted_by %}
+WantedBy={{ target }}
+{% endfor %}
+{% else %}
+WantedBy={{ quadlet_wanted_by }}
+{% endif %}

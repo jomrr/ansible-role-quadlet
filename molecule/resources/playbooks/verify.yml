@@ -1,0 +1,135 @@
+---
+# role: quadlet
+# file: molecule/resources/playbooks/verify.yml
+
+- name: "Molecule | verify | quadlet"
+  hosts: all
+  gather_facts: false
+  vars:
+    __quadlet_verify_vikunja_quadlet: /etc/containers/systemd/users/24001/vikunja.container
+    __quadlet_verify_vaultwarden_quadlet: /etc/containers/systemd/users/24002/vaultwarden.container
+    __quadlet_verify_vikunja_env: /srv/containers/vikunja/env/vikunja.env
+    __quadlet_verify_vaultwarden_env: /srv/containers/vaultwarden/env/vaultwarden.env
+  tasks:
+    - name: "Quadlet | Stat Vikunja Quadlet"
+      ansible.builtin.stat:
+        path: "{{ __quadlet_verify_vikunja_quadlet }}"
+      register: __quadlet_verify_vikunja_quadlet_stat
+
+    - name: "Quadlet | Stat Vaultwarden Quadlet"
+      ansible.builtin.stat:
+        path: "{{ __quadlet_verify_vaultwarden_quadlet }}"
+      register: __quadlet_verify_vaultwarden_quadlet_stat
+
+    - name: "Quadlet | Assert Quadlets are root-owned user Quadlets"
+      ansible.builtin.assert:
+        that:
+          - __quadlet_verify_vikunja_quadlet_stat.stat.exists
+          - __quadlet_verify_vikunja_quadlet_stat.stat.uid == 0
+          - __quadlet_verify_vikunja_quadlet_stat.stat.gid == 0
+          - __quadlet_verify_vikunja_quadlet_stat.stat.mode == '0644'
+          - __quadlet_verify_vaultwarden_quadlet_stat.stat.exists
+          - __quadlet_verify_vaultwarden_quadlet_stat.stat.uid == 0
+          - __quadlet_verify_vaultwarden_quadlet_stat.stat.gid == 0
+          - __quadlet_verify_vaultwarden_quadlet_stat.stat.mode == '0644'
+
+    - name: "Quadlet | Assert service users cannot write Quadlets"
+      become: true
+      become_user: "{{ item.user }}"
+      ansible.builtin.command:
+        argv:
+          - test
+          - "!"
+          - "-w"
+          - "{{ item.path }}"
+      changed_when: false
+      loop:
+        - user: quadlet_vikunja
+          path: "{{ __quadlet_verify_vikunja_quadlet }}"
+        - user: quadlet_vaultwarden
+          path: "{{ __quadlet_verify_vaultwarden_quadlet }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: "Quadlet | Stat EnvironmentFiles"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: __quadlet_verify_env_stats
+      loop:
+        - "{{ __quadlet_verify_vikunja_env }}"
+        - "{{ __quadlet_verify_vaultwarden_env }}"
+
+    - name: "Quadlet | Assert EnvironmentFile permissions"
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.uid == 0
+          - item.stat.mode == '0640'
+      loop: "{{ __quadlet_verify_env_stats.results }}"
+      loop_control:
+        label: "{{ item.stat.path }}"
+
+    - name: "Quadlet | Read generated files"
+      ansible.builtin.slurp:
+        src: "{{ item }}"
+      register: __quadlet_verify_files
+      loop:
+        - "{{ __quadlet_verify_vikunja_quadlet }}"
+        - "{{ __quadlet_verify_vaultwarden_quadlet }}"
+        - "{{ __quadlet_verify_vikunja_env }}"
+        - "{{ __quadlet_verify_vaultwarden_env }}"
+
+    - name: "Quadlet | Set generated file content facts"
+      ansible.builtin.set_fact:
+        __quadlet_verify_vikunja_quadlet_content: "{{ __quadlet_verify_files.results[0].content | b64decode }}"
+        __quadlet_verify_vaultwarden_quadlet_content: "{{ __quadlet_verify_files.results[1].content | b64decode }}"
+        __quadlet_verify_vikunja_env_content: "{{ __quadlet_verify_files.results[2].content | b64decode }}"
+        __quadlet_verify_vaultwarden_env_content: "{{ __quadlet_verify_files.results[3].content | b64decode }}"
+
+    - name: "Quadlet | Assert EnvironmentFiles do not contain secret values"
+      ansible.builtin.assert:
+        that:
+          - "'molecule-db-secret' not in __quadlet_verify_vikunja_env_content"
+          - "'molecule-service-secret' not in __quadlet_verify_vikunja_env_content"
+          - "'molecule-admin-token' not in __quadlet_verify_vaultwarden_env_content"
+          - "'VIKUNJA_DATABASE_PASSWORD_FILE=\"/run/secrets/vikunja_db_password\"' in __quadlet_verify_vikunja_env_content"
+          - "'VIKUNJA_SERVICE_SECRET_FILE=\"/run/secrets/vikunja_service_secret\"' in __quadlet_verify_vikunja_env_content"
+
+    - name: "Quadlet | Assert Secret references are rendered in Quadlets"
+      ansible.builtin.assert:
+        that:
+          - "'Secret=vikunja_db_password' in __quadlet_verify_vikunja_quadlet_content"
+          - "'Secret=vikunja_service_secret' in __quadlet_verify_vikunja_quadlet_content"
+          - "'Secret=vaultwarden_admin_token,type=env,target=ADMIN_TOKEN' in __quadlet_verify_vaultwarden_quadlet_content"
+
+    - name: "Quadlet | Stat forbidden home Quadlet paths"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: __quadlet_verify_home_quadlets
+      loop:
+        - /var/lib/quadlet_vikunja/.config/containers/systemd/vikunja.container
+        - /var/lib/quadlet_vaultwarden/.config/containers/systemd/vaultwarden.container
+
+    - name: "Quadlet | Assert no Quadlets are placed below service-user homes"
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+      loop: "{{ __quadlet_verify_home_quadlets.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: "Quadlet | Stat forbidden rootful Quadlet paths"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: __quadlet_verify_rootful_quadlets
+      loop:
+        - /etc/containers/systemd/vikunja.container
+        - /etc/containers/systemd/vaultwarden.container
+
+    - name: "Quadlet | Assert rootful Quadlet directory is not used"
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+      loop: "{{ __quadlet_verify_rootful_quadlets.results }}"
+      loop_control:
+        label: "{{ item.item }}"

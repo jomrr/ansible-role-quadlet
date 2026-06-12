@@ -1,0 +1,17 @@
+# role: jomrr.quadlet
+# file: .gitignore
+
+__pycache__/
+.ansible/
+.cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.uv-cache/
+.idea/
+.tox/
+.venv/
+.vscode/
+cache/
+collections/*
+dist/

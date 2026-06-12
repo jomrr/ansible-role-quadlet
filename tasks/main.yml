@@ -1,0 +1,25 @@
+---
+# role: quadlet
+# file: tasks/main.yml
+
+- name: "Quadlet | Validate role input"
+  ansible.builtin.assert:
+    that:
+      - quadlet_packages is sequence
+      - quadlet_users is sequence
+    fail_msg: "quadlet_packages and quadlet_users must be lists."
+
+- name: "Quadlet | Install packages"
+  ansible.builtin.package:
+    name: "{{ quadlet_packages }}"
+    state: present
+  when:
+    - quadlet_manage_packages | bool
+    - quadlet_packages | length > 0
+
+- name: "Quadlet | Manage service users"
+  ansible.builtin.include_tasks: user.yml
+  loop: "{{ quadlet_users }}"
+  loop_control:
+    loop_var: quadlet_user
+    label: "{{ quadlet_user.name | default('unnamed') }}"

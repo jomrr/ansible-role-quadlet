@@ -1,0 +1,13 @@
+---
+# role: quadlet
+# file: defaults/main.yml
+
+# Packages required to render and run rootless Podman Quadlets.
+quadlet_packages:
+  - podman
+
+# Whether the role manages package installation.
+quadlet_manage_packages: true
+
+# Rootless Podman service users and their containers.
+quadlet_users: []

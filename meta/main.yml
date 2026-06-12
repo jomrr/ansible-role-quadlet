@@ -1,0 +1,18 @@
+---
+# role: quadlet
+# file: meta/main.yml
+
+galaxy_info:
+  author: Jonas Mauer
+  description: Ansible role for deploying rootless Podman Quadlet application services.
+  galaxy_tags:
+    - podman
+    - quadlet
+    - containers
+    - rootless
+    - systemd
+  issue_tracker_url: https://github.com/jomrr/ansible-role-quadlet/issues
+  license: MIT
+  min_ansible_version: "2.20"
+  namespace: jomrr
+  role_name: quadlet

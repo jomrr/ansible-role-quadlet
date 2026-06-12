@@ -1,0 +1,104 @@
+---
+# role: quadlet
+# file: tasks/container.yml
+
+- name: "Quadlet | Validate container"
+  ansible.builtin.assert:
+    that:
+      - quadlet_container.name is defined
+      - quadlet_container.name | length > 0
+      - quadlet_container.image is defined
+      - quadlet_container.image | length > 0
+      - quadlet_container.environment | default({}) is mapping
+      - quadlet_container.secrets | default([]) is sequence
+      - quadlet_container.volumes | default([]) is sequence
+      - quadlet_container.ports | default([]) is sequence
+      - quadlet_container.networks | default([]) is sequence
+      - quadlet_container.tmpfs | default([]) is sequence
+    fail_msg: "Each container needs at least name and image; list and dict fields must use the documented types."
+  no_log: "{{ quadlet_container.secrets | default([]) | selectattr('value', 'defined') | list | length > 0 }}"
+
+- name: "Quadlet | Set container facts"
+  ansible.builtin.set_fact:
+    __quadlet_container_name: "{{ quadlet_container.name }}"
+    __quadlet_container_env_file: >-
+      {{
+        quadlet_container.environment_file
+        | default('/srv/containers/' ~ quadlet_container.name ~ '/env/' ~ quadlet_container.name ~ '.env')
+      }}
+    __quadlet_container_environment: "{{ quadlet_container.environment | default({}) }}"
+    __quadlet_container_secrets: "{{ quadlet_container.secrets | default([]) }}"
+    __quadlet_container_enabled: "{{ quadlet_container.enabled | default(true) | bool }}"
+    __quadlet_container_state: "{{ quadlet_container.state | default('started') }}"
+
+- name: "Quadlet | Set container service fact"
+  ansible.builtin.set_fact:
+    __quadlet_container_manage_service: >-
+      {{
+        (__quadlet_container_enabled | bool)
+        or (__quadlet_container_state != 'created')
+      }}
+
+- name: "Quadlet | Ensure container base directory exists"
+  ansible.builtin.file:
+    path: "/srv/containers/{{ __quadlet_container_name }}"
+    owner: root
+    group: "{{ __quadlet_user_name }}"
+    mode: "0750"
+    state: directory
+
+- name: "Quadlet | Ensure container environment directory exists"
+  ansible.builtin.file:
+    path: "{{ __quadlet_container_env_file | dirname }}"
+    owner: root
+    group: "{{ __quadlet_user_name }}"
+    mode: "0750"
+    state: directory
+
+- name: "Quadlet | Ensure container data directory exists"
+  ansible.builtin.file:
+    path: "/srv/containers/{{ __quadlet_container_name }}/data"
+    owner: "{{ __quadlet_user_name }}"
+    group: "{{ __quadlet_user_name }}"
+    mode: "0750"
+    state: directory
+
+- name: "Quadlet | Render container environment file"
+  ansible.builtin.template:
+    src: environment.env.j2
+    dest: "{{ __quadlet_container_env_file }}"
+    owner: root
+    group: "{{ __quadlet_user_name }}"
+    mode: "0640"
+
+- name: "Quadlet | Manage rootless Podman secrets"
+  ansible.builtin.include_tasks: secret.yml
+  loop: "{{ __quadlet_container_secrets }}"
+  loop_control:
+    loop_var: quadlet_secret
+    label: "{{ quadlet_secret.name | default('unnamed') }}"
+  no_log: "{{ __quadlet_container_secrets | selectattr('value', 'defined') | list | length > 0 }}"
+
+- name: "Quadlet | Render root-owned user Quadlet"
+  ansible.builtin.template:
+    src: container.container.j2
+    dest: "/etc/containers/systemd/users/{{ __quadlet_user_uid }}/{{ __quadlet_container_name }}.container"
+    owner: root
+    group: root
+    mode: "0644"
+  register: __quadlet_container_quadlet
+
+- name: "Quadlet | Manage user service"
+  become: true
+  become_user: "{{ __quadlet_user_name }}"
+  ansible.builtin.systemd_service:
+    name: "{{ __quadlet_container_name }}.service"
+    scope: user
+    enabled: "{{ __quadlet_container_enabled }}"
+    state: "{{ (__quadlet_container_state == 'created') | ternary(omit, __quadlet_container_state) }}"
+    daemon_reload: "{{ __quadlet_container_quadlet.changed }}"
+  environment:
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ __quadlet_user_uid }}/bus"
+    HOME: "{{ __quadlet_user_home }}"
+    XDG_RUNTIME_DIR: "/run/user/{{ __quadlet_user_uid }}"
+  when: __quadlet_container_manage_service | bool

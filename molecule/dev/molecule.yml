@@ -1,0 +1,107 @@
+---
+# role: quadlet
+# file: molecule/dev/molecule.yml
+
+dependency:
+  name: "galaxy"
+driver:
+  name: "podman"
+provisioner:
+  name: "ansible"
+  config_options:
+    defaults:
+      forks: 8
+      interpreter_python: "auto_silent"
+      allow_world_readable_tmpfiles: true
+      callbacks_enabled: "ansible.posix.profile_tasks,ansible.posix.timer"
+      callback_result_format: "yaml"
+      remote_tmp: "/tmp/.ansible/tmp"
+    ssh_connection:
+      pipelining: true
+  log: true
+  playbooks:
+    converge: "../resources/playbooks/converge.yml"
+    verify: "../resources/playbooks/verify.yml"
+  inventory:
+    group_vars:
+      all:
+        quadlet_manage_packages: false
+        quadlet_users:
+          - name: "quadlet_vikunja"
+            uid: 24001
+            linger: false
+            containers:
+              - name: "vikunja"
+                image: "localhost/vikunja:test"
+                container_name: "vikunja"
+                environment:
+                  VIKUNJA_DATABASE_TYPE: "postgres"
+                  VIKUNJA_DATABASE_PASSWORD_FILE: "/run/secrets/vikunja_db_password"
+                  VIKUNJA_SERVICE_SECRET_FILE: "/run/secrets/vikunja_service_secret"
+                secrets:
+                  - name: "vikunja_db_password"
+                    value_file: "/tmp/molecule-quadlet-secrets/vikunja_db_password"
+                  - name: "vikunja_service_secret"
+                    value_file: "/tmp/molecule-quadlet-secrets/vikunja_service_secret"
+                volumes:
+                  - "/srv/containers/vikunja/data:/app/vikunja/files:Z"
+                ports:
+                  - "127.0.0.1:3456:3456"
+                enabled: false
+                state: "created"
+          - name: "quadlet_vaultwarden"
+            uid: 24002
+            linger: false
+            containers:
+              - name: "vaultwarden"
+                image: "localhost/vaultwarden:test"
+                container_name: "vaultwarden"
+                environment:
+                  DOMAIN: "http://vaultwarden.example.invalid"
+                  SIGNUPS_ALLOWED: "false"
+                secrets:
+                  - name: "vaultwarden_admin_token"
+                    type: "env"
+                    env_target: "ADMIN_TOKEN"
+                    value_file: "/tmp/molecule-quadlet-secrets/vaultwarden_admin_token"
+                volumes:
+                  - "/srv/containers/vaultwarden/data:/data:Z"
+                ports:
+                  - "127.0.0.1:8080:80"
+                enabled: false
+                state: "created"
+verifier:
+  name: "ansible"
+scenario:
+  name: "dev"
+platforms:
+  - name: almalinux-latest-quadlet
+    image: "docker.io/jomrr/molecule-almalinux:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: true
+  - name: debian-latest-quadlet
+    image: "docker.io/jomrr/molecule-debian:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: true
+  - name: fedora-latest-quadlet
+    image: "docker.io/jomrr/molecule-fedora:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: true
+  - name: opensuse-leap-latest-quadlet
+    image: "docker.io/jomrr/molecule-opensuse-leap:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: true
+  - name: opensuse-tumbleweed-latest-quadlet
+    image: "docker.io/jomrr/molecule-opensuse-tumbleweed:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: true
+  - name: ubuntu-latest-quadlet
+    image: "docker.io/jomrr/molecule-ubuntu:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: true
