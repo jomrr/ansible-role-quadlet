@@ -111,6 +111,8 @@ Container and pod items support `restart_policy`, `restart_sec`,
 - Set a container `pod` value to a pod unit base name such as `app` or to the explicit Quadlet unit name `app.pod`; both render `Pod=app.pod`.
 - Containers with `pod` set render `StartWithPod=true` by default, so starting the pod service starts the associated containers.
 - When a pod owns the lifecycle, set pod `enabled` and `state` on the pod and use container `enabled: false` with `state: created` for file-only container units.
+- Use `host.containers.internal` from a container to reach services on the container host.
+- Use `127.0.0.1` for a database only when the database runs in the same container or in another container joined to the same pod network namespace.
 - Use `exec_start_pre` for local dependency checks such as `pg_isready` before Podman starts the container service.
 - `restart_policy` renders `Restart=`, `restart_sec` renders `RestartSec=`, and `timeout_start_sec` renders `TimeoutStartSec=`.
 - `type: mount` renders `Secret=<name>` or `Secret=<name>,target=<target>` and lets Podman mount the secret as a file.
@@ -136,14 +138,16 @@ Container and pod items support `restart_policy`, `restart_sec`,
 
 ## Example Playbook
 
-### Vikunja with mounted Podman secrets
+### Vikunja with host-local PostgreSQL
 
-Vikunja can consume file-based secrets. The EnvironmentFile contains
-only `_FILE` references, and the Quadlet contains `Secret=` references.
+PostgreSQL runs on the container host. The container reaches it through
+Podman's `host.containers.internal` host gateway name. The EnvironmentFile
+contains only `_FILE` references, and the Quadlet contains `Secret=`
+references.
 
 ```yaml
 ---
-- name: Deploy Vikunja as a rootless Quadlet
+- name: Deploy Vikunja with host-local PostgreSQL
   hosts: quadlet
   gather_facts: true
   roles:
@@ -158,7 +162,9 @@ only `_FILE` references, and the Quadlet contains `Secret=` references.
                 container_name: vikunja
                 environment:
                   VIKUNJA_DATABASE_TYPE: postgres
-                  VIKUNJA_DATABASE_HOST: 127.0.0.1
+                  VIKUNJA_DATABASE_HOST: host.containers.internal
+                  VIKUNJA_DATABASE_USER: vikunja
+                  VIKUNJA_DATABASE_DATABASE: vikunja
                   VIKUNJA_DATABASE_PASSWORD_FILE: /run/secrets/vikunja_db_password
                   VIKUNJA_SERVICE_SECRET_FILE: /run/secrets/vikunja_service_secret
                 secrets:
@@ -170,53 +176,21 @@ only `_FILE` references, and the Quadlet contains `Secret=` references.
                   - /srv/containers/vikunja/data:/app/vikunja/files:Z
                 ports:
                   - 127.0.0.1:3456:3456
-```
-### App container waiting for local PostgreSQL
-
-The PostgreSQL service runs on the container host. The application
-container waits for PostgreSQL before Podman starts the container.
-
-```yaml
----
-- name: Deploy an app container using host-local PostgreSQL
-  hosts: quadlet
-  gather_facts: true
-  roles:
-    - role: jomrr.quadlet
-      vars:
-        quadlet_users:
-          - name: vaultwarden
-            uid: 24020
-            containers:
-              - name: vaultwarden
-                image: docker.io/vaultwarden/server:latest
-                container_name: vaultwarden
-                environment:
-                  DATABASE_URL: postgresql://vaultwarden@host.container.local:5432/vaultwarden
-                  DOMAIN: https://vault.example.org
-                secrets:
-                  - name: vaultwarden_admin_token
-                    type: env
-                    env_target: ADMIN_TOKEN
-                    value: "{{ vault_vaultwarden_admin_token }}"
-                volumes:
-                  - /srv/containers/vaultwarden/data:/data:Z
-                ports:
-                  - 127.0.0.1:8080:80
                 exec_start_pre:
-                  - /bin/bash -c 'until pg_isready -h POSTGRES_PUBLIC_IP -p 5432 -U vaultwarden; do sleep 10; done;'
+                  - /bin/bash -c 'until pg_isready -h POSTGRES_HOST_IP -p 5432 -U vikunja; do sleep 10; done;'
                 restart_policy: on-failure
                 restart_sec: 10s
                 timeout_start_sec: 300
 ```
-### Compose-style application pod
+### Vikunja pod with PostgreSQL container
 
-A Podman pod Quadlet owns the shared network namespace and port publishing.
-Containers join the pod through `Pod=<name>.pod` and are started with the pod.
+PostgreSQL runs in a second container in the same Podman pod. Containers
+in a pod share one network namespace, so the application reaches the
+database through `127.0.0.1`.
 
 ```yaml
 ---
-- name: Deploy an application pod as rootless Quadlets
+- name: Deploy Vikunja and PostgreSQL in one rootless pod
   hosts: quadlet
   gather_facts: true
   roles:
@@ -232,6 +206,21 @@ Containers join the pod through `Pod=<name>.pod` and are started with the pod.
                 networks:
                   - pasta
             containers:
+              - name: vikunja-db
+                image: docker.io/library/postgres:16-alpine
+                container_name: vikunja-db
+                pod: vikunja
+                environment:
+                  POSTGRES_DB: vikunja
+                  POSTGRES_USER: vikunja
+                  POSTGRES_PASSWORD_FILE: /run/secrets/vikunja_db_password
+                secrets:
+                  - name: vikunja_db_password
+                    value: "{{ vault_vikunja_db_password }}"
+                volumes:
+                  - /srv/containers/vikunja-db/data:/var/lib/postgresql/data:Z,U
+                enabled: false
+                state: created
               - name: vikunja
                 image: docker.io/vikunja/vikunja:latest
                 container_name: vikunja
@@ -239,6 +228,8 @@ Containers join the pod through `Pod=<name>.pod` and are started with the pod.
                 environment:
                   VIKUNJA_DATABASE_TYPE: postgres
                   VIKUNJA_DATABASE_HOST: 127.0.0.1
+                  VIKUNJA_DATABASE_USER: vikunja
+                  VIKUNJA_DATABASE_DATABASE: vikunja
                   VIKUNJA_DATABASE_PASSWORD_FILE: /run/secrets/vikunja_db_password
                   VIKUNJA_SERVICE_SECRET_FILE: /run/secrets/vikunja_service_secret
                 secrets:
@@ -250,40 +241,6 @@ Containers join the pod through `Pod=<name>.pod` and are started with the pod.
                   - /srv/containers/vikunja/data:/app/vikunja/files:Z
                 enabled: false
                 state: created
-```
-### Vaultwarden ADMIN_TOKEN as explicit env fallback
-
-Use `type: env` only when a clean file-based variant is not available for
-the application setting. Prefer encrypted inventory or Ansible Vault
-variables over plaintext values.
-
-```yaml
----
-- name: Deploy Vaultwarden as a rootless Quadlet
-  hosts: quadlet
-  gather_facts: true
-  roles:
-    - role: jomrr.quadlet
-      vars:
-        quadlet_users:
-          - name: vaultwarden
-            uid: 24020
-            containers:
-              - name: vaultwarden
-                image: docker.io/vaultwarden/server:latest
-                container_name: vaultwarden
-                environment:
-                  DOMAIN: https://vault.example.org
-                  SIGNUPS_ALLOWED: "false"
-                secrets:
-                  - name: vaultwarden_admin_token
-                    type: env
-                    env_target: ADMIN_TOKEN
-                    value: "{{ vault_vaultwarden_admin_token }}"
-                volumes:
-                  - /srv/containers/vaultwarden/data:/data:Z
-                ports:
-                  - 127.0.0.1:8080:80
 ```
 
 ## References

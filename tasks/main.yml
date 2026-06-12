@@ -10,7 +10,7 @@
 
 - name: "Quadlet | Install packages"
   ansible.builtin.package:
-    name: "{{ quadlet_packages }}"
+    name: "{{ __quadlet_packages }}"
     state: present
 
 - name: "Quadlet | Manage service users"

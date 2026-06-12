@@ -5,7 +5,7 @@
 # Rootless Podman service users and their pods or containers.
 quadlet_users: []
 
-# Example: one simple app container with mounted secrets.
+# Example: app container using PostgreSQL on the container host.
 # quadlet_users:
 #   - name: vikunja
 #     uid: 24010
@@ -15,7 +15,9 @@ quadlet_users: []
 #         container_name: vikunja
 #         environment:
 #           VIKUNJA_DATABASE_TYPE: postgres
-#           VIKUNJA_DATABASE_HOST: 127.0.0.1
+#           VIKUNJA_DATABASE_HOST: host.containers.internal
+#           VIKUNJA_DATABASE_USER: vikunja
+#           VIKUNJA_DATABASE_DATABASE: vikunja
 #           VIKUNJA_DATABASE_PASSWORD_FILE: /run/secrets/vikunja_db_password
 #           VIKUNJA_SERVICE_SECRET_FILE: /run/secrets/vikunja_service_secret
 #         secrets:
@@ -27,66 +29,56 @@ quadlet_users: []
 #           - /srv/containers/vikunja/data:/app/vikunja/files:Z
 #         ports:
 #           - 127.0.0.1:3456:3456
-
-# Example: app container using PostgreSQL on the container host.
-# quadlet_users:
-#   - name: vaultwarden
-#     uid: 24020
-#     containers:
-#       - name: vaultwarden
-#         image: docker.io/vaultwarden/server:latest
-#         container_name: vaultwarden
-#         environment:
-#           DATABASE_URL: postgresql://vaultwarden@host.container.local:5432/vaultwarden
-#           DOMAIN: https://vault.example.org
-#         secrets:
-#           - name: vaultwarden_admin_token
-#             type: env
-#             env_target: ADMIN_TOKEN
-#             value: "{{ vault_vaultwarden_admin_token }}"
-#         volumes:
-#           - /srv/containers/vaultwarden/data:/data:Z
-#         ports:
-#           - 127.0.0.1:8080:80
 #         exec_start_pre:
-#           - /bin/bash -c 'until pg_isready -h POSTGRES_PUBLIC_IP -p 5432 -U vaultwarden; do sleep 10; done;'
+#           - /bin/bash -c 'until pg_isready -h POSTGRES_HOST_IP -p 5432 -U vikunja; do sleep 10; done;'
 #         restart_policy: on-failure
 #         restart_sec: 10s
 #         timeout_start_sec: 300
 
-# Example: compose-style pod with two containers sharing one network namespace.
+# Example: app pod with PostgreSQL in the same pod network namespace.
 # quadlet_users:
-#   - name: appstack
-#     uid: 24030
+#   - name: vikunja
+#     uid: 24020
 #     pods:
-#       - name: appstack
+#       - name: vikunja
 #         ports:
-#           - 127.0.0.1:8080:80
+#           - 127.0.0.1:3456:3456
 #         networks:
 #           - pasta
 #         restart_policy: always
 #     containers:
-#       - name: web
-#         image: ghcr.io/example/web:latest
-#         container_name: web
-#         pod: appstack
+#       - name: vikunja-db
+#         image: docker.io/library/postgres:16-alpine
+#         container_name: vikunja-db
+#         pod: vikunja
 #         environment:
-#           APP_DATABASE_HOST: 127.0.0.1
-#           APP_DATABASE_PASSWORD_FILE: /run/secrets/app_db_password
+#           POSTGRES_DB: vikunja
+#           POSTGRES_USER: vikunja
+#           POSTGRES_PASSWORD_FILE: /run/secrets/vikunja_db_password
 #         secrets:
-#           - name: app_db_password
-#             value: "{{ vault_app_db_password }}"
+#           - name: vikunja_db_password
+#             value: "{{ vault_vikunja_db_password }}"
+#         volumes:
+#           - /srv/containers/vikunja-db/data:/var/lib/postgresql/data:Z,U
 #         enabled: false
 #         state: created
-#       - name: worker
-#         image: ghcr.io/example/worker:latest
-#         container_name: worker
-#         pod: appstack
+#       - name: vikunja
+#         image: docker.io/vikunja/vikunja:latest
+#         container_name: vikunja
+#         pod: vikunja
 #         environment:
-#           APP_DATABASE_HOST: 127.0.0.1
-#           APP_DATABASE_PASSWORD_FILE: /run/secrets/app_db_password
+#           VIKUNJA_DATABASE_TYPE: postgres
+#           VIKUNJA_DATABASE_HOST: 127.0.0.1
+#           VIKUNJA_DATABASE_USER: vikunja
+#           VIKUNJA_DATABASE_DATABASE: vikunja
+#           VIKUNJA_DATABASE_PASSWORD_FILE: /run/secrets/vikunja_db_password
+#           VIKUNJA_SERVICE_SECRET_FILE: /run/secrets/vikunja_service_secret
 #         secrets:
-#           - name: app_db_password
-#             value: "{{ vault_app_db_password }}"
+#           - name: vikunja_db_password
+#             value: "{{ vault_vikunja_db_password }}"
+#           - name: vikunja_service_secret
+#             value: "{{ vault_vikunja_service_secret }}"
+#         volumes:
+#           - /srv/containers/vikunja/data:/app/vikunja/files:Z
 #         enabled: false
 #         state: created

@@ -3,5 +3,5 @@
 # file: vars/main.yml
 
 # Internal packages required to render and run rootless Podman Quadlets.
-quadlet_packages:
+__quadlet_packages:
   - podman
