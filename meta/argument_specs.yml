@@ -7,6 +7,8 @@ argument_specs:
     short_description: Deploy rootless Podman Quadlet application services
     description:
       - Creates dedicated Unix service users for rootless Podman application containers.
+      - Uses `useradd --add-subids-for-system` so shadow-utils allocates subordinate IDs
+        from system defaults.
       - Renders root-owned user Quadlet files below `/etc/containers/systemd/users/<UID>/`.
       - Manages non-secret EnvironmentFiles and rootless Podman secret references.
       - Enables and starts generated user services when requested.
@@ -47,11 +49,6 @@ argument_specs:
             required: false
             default: /usr/sbin/nologin
             description: Login shell for the service user.
-          linger:
-            type: bool
-            required: false
-            default: true
-            description: Whether to enable systemd linger when user services are enabled.
           containers:
             type: list
             elements: dict

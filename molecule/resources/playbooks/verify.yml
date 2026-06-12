@@ -10,6 +10,8 @@
     __quadlet_verify_vaultwarden_quadlet: /etc/containers/systemd/users/24002/vaultwarden.container
     __quadlet_verify_vikunja_env: /srv/containers/vikunja/env/vikunja.env
     __quadlet_verify_vaultwarden_env: /srv/containers/vaultwarden/env/vaultwarden.env
+    __quadlet_verify_vikunja_linger: /var/lib/systemd/linger/quadlet_vikunja
+    __quadlet_verify_vaultwarden_linger: /var/lib/systemd/linger/quadlet_vaultwarden
   tasks:
     - name: "Quadlet | Stat Vikunja Quadlet"
       ansible.builtin.stat:
@@ -101,6 +103,22 @@
           - "'Secret=vikunja_db_password' in __quadlet_verify_vikunja_quadlet_content"
           - "'Secret=vikunja_service_secret' in __quadlet_verify_vikunja_quadlet_content"
           - "'Secret=vaultwarden_admin_token,type=env,target=ADMIN_TOKEN' in __quadlet_verify_vaultwarden_quadlet_content"
+
+    - name: "Quadlet | Stat service user linger markers"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: __quadlet_verify_linger_markers
+      loop:
+        - "{{ __quadlet_verify_vikunja_linger }}"
+        - "{{ __quadlet_verify_vaultwarden_linger }}"
+
+    - name: "Quadlet | Assert service user linger is enabled"
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+      loop: "{{ __quadlet_verify_linger_markers.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
     - name: "Quadlet | Stat forbidden home Quadlet paths"
       ansible.builtin.stat:

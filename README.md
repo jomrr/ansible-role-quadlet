@@ -21,12 +21,13 @@ Podman context.
 
 - Podman package installation when `quadlet_manage_packages` is enabled
 - Dedicated Unix service users and matching primary groups
+- Subordinate UID/GID allocation for newly created service users through system shadow-utils defaults
 - Root-owned user Quadlet directories below `/etc/containers/systemd/users/<UID>/`
 - Root-owned Quadlet `.container` files for rootless user services
 - Non-secret EnvironmentFiles below `/srv/containers/<container>/env/` by default
 - Default application data directories below `/srv/containers/<container>/data`
 - Rootless Podman secrets when `value` or `value_file` is supplied
-- Systemd linger for users with enabled services
+- Systemd linger for every managed service user
 - Generated user service enablement and runtime state
 
 ### Not Managed
@@ -37,11 +38,14 @@ Podman context.
 - Firewall policy
 - Reverse proxy or TLS certificate lifecycle
 - Application-specific database provisioning
+- `login.defs`, `/etc/subuid`, or `/etc/subgid` range management
+- Retrofitting subordinate UID/GID mappings for pre-existing service users
 - Purging unmanaged Quadlet files or Podman secrets
 
 ## Requirements
 
 - Target hosts need Podman with Quadlet support and systemd user services.
+- Target hosts need a shadow-utils `useradd` implementation supporting `--add-subids-for-system`.
 - Rootless Podman secret creation requires a working rootless Podman context for each service user.
 
 ## Dependencies
@@ -70,9 +74,10 @@ The following variables are part of the public role interface.
 
 ## Check Mode
 
-File, template, user, group, package, and systemd tasks follow the check-mode
-behavior of their underlying Ansible modules. Rootless Podman secret
-creation uses `podman secret` commands and is not a pure file operation.
+File, template, group, package, and systemd tasks follow the check-mode
+behavior of their underlying Ansible modules. Service user creation and
+rootless Podman secret creation use commands because Ansible modules do
+not cover the required rootless Podman and subordinate-ID behavior.
 
 ## Service Behavior
 
@@ -84,6 +89,7 @@ the role reloads the service user's systemd manager through the
 ## Security Notes
 
 - Rootless Podman reduces runtime privileges by running application containers in a non-root user namespace owned by the dedicated service user.
+- Service users are created with `useradd --system --add-subids-for-system`, so subordinate UID/GID mappings are allocated by the target system's shadow-utils defaults.
 - Quadlet files are written below `/etc/containers/systemd/users/<UID>/` with owner `root`, group `root`, and mode `0644`, so the service user cannot modify the unit definition.
 - The role does not use `/etc/containers/systemd/` for managed containers; that path is reserved for rootful or system-wide Quadlets.
 - EnvironmentFiles are only for non-secret application configuration and are written owner `root`, group service-user, mode `0640`.
@@ -101,6 +107,8 @@ the role reloads the service user's systemd manager through the
 - `type: env` renders `Secret=<name>,type=env,target=<ENV_NAME>` and exposes the secret through the container environment.
 - EnvironmentFile entries render ordinary `KEY="value"` settings and must not contain passwords, tokens, API keys, or private material.
 - If neither `value` nor `value_file` is set for a secret, the role only references the secret in the Quadlet and assumes it already exists in the service user's rootless Podman context.
+- The role does not parse or modify `/etc/login.defs`; subordinate ID count and ranges come from the target system's shadow-utils defaults.
+- `useradd` allocates subordinate IDs only for newly created users. Existing service users must already have suitable rootless Podman mappings.
 - Set `state: created` and `enabled: false` for file-only rendering without user service management.
 
 ## Supported Platforms
