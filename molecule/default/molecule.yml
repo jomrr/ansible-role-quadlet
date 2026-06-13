@@ -27,7 +27,7 @@ provisioner:
       all:
         quadlet_users:
           - name: "quadlet_vikunja"
-            uid: 24001
+            uid: 901
             pods:
               - name: "vikunja"
                 ports:
@@ -53,7 +53,7 @@ provisioner:
                 enabled: false
                 state: "created"
           - name: "quadlet_vaultwarden"
-            uid: 24002
+            uid: 902
             containers:
               - name: "vaultwarden"
                 image: "localhost/vaultwarden:test"

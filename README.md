@@ -113,6 +113,7 @@ Container and pod items support `restart_policy`, `restart_sec`,
 - When a pod owns the lifecycle, set pod `enabled` and `state` on the pod and use container `enabled: false` with `state: created` for file-only container units.
 - Use `host.containers.internal` from a container to reach services on the container host.
 - Use `127.0.0.1` for a database only when the database runs in the same container or in another container joined to the same pod network namespace.
+- Omit `uid` unless a fixed service-user UID is required; `useradd --system` otherwise allocates a system UID from the target host defaults.
 - Use `exec_start_pre` for local dependency checks such as `pg_isready` before Podman starts the container service.
 - `restart_policy` renders `Restart=`, `restart_sec` renders `RestartSec=`, and `timeout_start_sec` renders `TimeoutStartSec=`.
 - `type: mount` renders `Secret=<name>` or `Secret=<name>,target=<target>` and lets Podman mount the secret as a file.
@@ -155,7 +156,6 @@ references.
       vars:
         quadlet_users:
           - name: vikunja
-            uid: 24010
             containers:
               - name: vikunja
                 image: docker.io/vikunja/vikunja:latest
@@ -198,7 +198,6 @@ database through `127.0.0.1`.
       vars:
         quadlet_users:
           - name: vikunja
-            uid: 24010
             pods:
               - name: vikunja
                 ports:

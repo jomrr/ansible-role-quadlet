@@ -6,9 +6,9 @@
   hosts: all
   gather_facts: false
   vars:
-    __quadlet_verify_vikunja_pod: /etc/containers/systemd/users/24001/vikunja.pod
-    __quadlet_verify_vikunja_quadlet: /etc/containers/systemd/users/24001/vikunja.container
-    __quadlet_verify_vaultwarden_quadlet: /etc/containers/systemd/users/24002/vaultwarden.container
+    __quadlet_verify_vikunja_pod: /etc/containers/systemd/users/901/vikunja.pod
+    __quadlet_verify_vikunja_quadlet: /etc/containers/systemd/users/901/vikunja.container
+    __quadlet_verify_vaultwarden_quadlet: /etc/containers/systemd/users/902/vaultwarden.container
     __quadlet_verify_vikunja_env: /srv/containers/vikunja/env/vikunja.env
     __quadlet_verify_vaultwarden_env: /srv/containers/vaultwarden/env/vaultwarden.env
     __quadlet_verify_vikunja_linger: /var/lib/systemd/linger/quadlet_vikunja

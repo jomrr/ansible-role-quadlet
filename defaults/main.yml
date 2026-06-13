@@ -8,7 +8,6 @@ quadlet_users: []
 # Example: app container using PostgreSQL on the container host.
 # quadlet_users:
 #   - name: vikunja
-#     uid: 24010
 #     containers:
 #       - name: vikunja
 #         image: docker.io/vikunja/vikunja:latest
@@ -38,7 +37,6 @@ quadlet_users: []
 # Example: app pod with PostgreSQL in the same pod network namespace.
 # quadlet_users:
 #   - name: vikunja
-#     uid: 24020
 #     pods:
 #       - name: vikunja
 #         ports:
