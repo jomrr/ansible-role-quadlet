@@ -1,13 +1,17 @@
 ---
 # role: quadlet
-# file: .github/workflows/dev-push-smoke.yml
+# file: .github/workflows/main.yml
 
-name: dev push smoke
+name: main full gate
 
 on:
   push:
     branches:
-      - dev
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,16 +21,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  molecule-smoke:
+  molecule-full:
     env:
       TERM: xterm-256color
       FORCE_COLOR: "1"
       CLICOLOR_FORCE: "1"
       PY_COLORS: "1"
       ANSIBLE_FORCE_COLOR: "true"
-    name: Molecule smoke
+    name: Molecule full ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: quadlet-almalinux-latest
+            uns: jomrr
+            img: almalinux
+            tag: latest
+          - name: quadlet-debian-latest
+            uns: jomrr
+            img: debian
+            tag: latest
+          - name: quadlet-fedora-latest
+            uns: jomrr
+            img: fedora
+            tag: latest
+          - name: quadlet-opensuse-leap-latest
+            uns: jomrr
+            img: opensuse-leap
+            tag: latest
+          - name: quadlet-opensuse-tumbleweed-latest
+            uns: jomrr
+            img: opensuse-tumbleweed
+            tag: latest
+          - name: quadlet-ubuntu-latest
+            uns: jomrr
+            img: ubuntu
+            tag: latest
 
     steps:
       - name: Checkout repository
@@ -52,9 +85,12 @@ jobs:
           podman --version
           podman info
 
-      - name: Run Molecule smoke scenario
+      - name: Run Molecule default scenario
         run: |
           set -euo pipefail
+          export uns="${{ matrix.uns }}"
+          export img="${{ matrix.img }}"
+          export tag="${{ matrix.tag }}"
           uvx \
             --from molecule \
             --with ansible-core \
