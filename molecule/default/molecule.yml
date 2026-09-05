@@ -95,5 +95,4 @@ platforms:
     image: "docker.io/${uns:-jomrr}/molecule-${img:-fedora}:${tag:-latest}"
     pre_build_image: true
     override_command: false
-    privileged: true
     systemd: "true"
