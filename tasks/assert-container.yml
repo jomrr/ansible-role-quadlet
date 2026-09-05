@@ -1,0 +1,66 @@
+---
+# role: quadlet
+# file: tasks/assert-container.yml
+
+- name: "QUADLET | Validate container pod setting"
+  ansible.builtin.assert:
+    that:
+      - __quadlet_container.start_with_pod is not defined or __quadlet_container.pod is defined
+    quiet: true
+    fail_msg: >-
+      quadlet_users[].containers[].start_with_pod requires pod.
+
+- name: "QUADLET | Validate container image for registry auto-update"
+  ansible.builtin.assert:
+    that:
+      - >-
+        __quadlet_container.auto_update | default(quadlet_autoupdate) != 'registry'
+        or __quadlet_container.image is match('^(localhost|[^/]+[.:][^/]+)/')
+    quiet: true
+    fail_msg: >-
+      Registry auto-update requires a fully-qualified container image.
+
+- name: "QUADLET | Validate container install options"
+  ansible.builtin.assert:
+    that:
+      - >-
+        __quadlet_container.enabled | default(true) | bool
+        or 'WantedBy' not in (__quadlet_container.install_options | default({}))
+    quiet: true
+    fail_msg: >-
+      quadlet_users[].containers[].install_options.WantedBy cannot be set when enabled is false.
+
+- name: "QUADLET | Validate reserved container option keys"
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (__quadlet_reserved_container_options
+        | intersect(__quadlet_container.container_options | default({}) | list))
+      - >-
+        not (__quadlet_reserved_service_options
+        | intersect(__quadlet_container.service_options | default({}) | list))
+    quiet: true
+    fail_msg: >-
+      Container option maps cannot redefine a single-value key managed directly by the role.
+
+- name: "QUADLET | Validate secret separation from container environment"
+  ansible.builtin.assert:
+    that:
+      - >-
+        __quadlet_secret.type | default('mount') != 'env'
+        or __quadlet_secret.env_target not in (__quadlet_container.environment | default({}))
+      - >-
+        __quadlet_secret.value is not defined
+        or __quadlet_secret.value not in (
+          (__quadlet_container.environment | default({})).values()
+          | map('string')
+          | list
+        )
+    quiet: true
+    fail_msg: >-
+      The secret must not duplicate a key or value from quadlet_users[].containers[].environment.
+  loop: "{{ __quadlet_container.secrets }}"
+  loop_control:
+    loop_var: __quadlet_secret
+    label: "{{ __quadlet_secret.name }}"
+  no_log: true

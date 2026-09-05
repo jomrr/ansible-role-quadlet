@@ -6,8 +6,8 @@
 __quadlet_packages:
   - podman
 
-# Single-value keys rendered directly by the role must not be overridden by option maps.
-__quadlet_reserved_single_value_options:
+# Single-value container keys rendered directly by the role.
+__quadlet_reserved_container_options:
   - Image
   - ContainerName
   - Pod
@@ -19,6 +19,11 @@ __quadlet_reserved_single_value_options:
   - PidsLimit
   - Exec
   - AutoUpdate
-  - Restart
+
+# Single-value pod keys rendered directly by the role.
+__quadlet_reserved_pod_options:
   - ServiceName
-  - WantedBy
+
+# Single-value service keys rendered directly by the role.
+__quadlet_reserved_service_options:
+  - Restart

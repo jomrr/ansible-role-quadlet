@@ -2,6 +2,9 @@
 # role: quadlet
 # file: tasks/container.yml
 
+- name: "QUADLET | Validate container configuration"
+  ansible.builtin.import_tasks: assert-container.yml
+
 - name: "QUADLET | Ensure container directories exist"
   ansible.builtin.file:
     path: "{{ __quadlet_directory.path }}"

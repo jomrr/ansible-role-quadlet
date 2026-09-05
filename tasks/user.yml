@@ -29,9 +29,6 @@
     state: present
   register: __quadlet_service_user
 
-- name: "QUADLET | Validate service user configuration"
-  ansible.builtin.import_tasks: assert.yml
-
 - name: "QUADLET | Initialize service user state"
   ansible.builtin.set_fact:
     __quadlet_handler_user: "{{ __quadlet_user }}"

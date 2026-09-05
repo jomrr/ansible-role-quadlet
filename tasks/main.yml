@@ -2,6 +2,13 @@
 # role: quadlet
 # file: tasks/main.yml
 
+- name: "QUADLET | Validate service user configuration"
+  ansible.builtin.include_tasks: assert.yml
+  loop: "{{ quadlet_users }}"
+  loop_control:
+    loop_var: __quadlet_user
+    label: "{{ __quadlet_user.name }}"
+
 - name: "QUADLET | Install packages"
   ansible.builtin.package:
     name: "{{ __quadlet_packages }}"

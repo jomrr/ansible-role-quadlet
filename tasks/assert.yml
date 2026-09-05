@@ -8,6 +8,7 @@
       - >-
         __quadlet_pod.enabled | default(true) | bool
         or 'WantedBy' not in (__quadlet_pod.install_options | default({}))
+    quiet: true
     fail_msg: >-
       quadlet_users[].pods[].install_options.WantedBy cannot be set when enabled is false.
   loop: "{{ __quadlet_user.pods | default([]) }}"
@@ -19,111 +20,15 @@
   ansible.builtin.assert:
     that:
       - >-
-        (__quadlet_pod.unit_options | default({})).keys()
-        | list
-        | intersect(__quadlet_reserved_single_value_options)
-        | length == 0
+        not (__quadlet_reserved_pod_options
+        | intersect(__quadlet_pod.pod_options | default({}) | list))
       - >-
-        (__quadlet_pod.pod_options | default({})).keys()
-        | list
-        | intersect(__quadlet_reserved_single_value_options)
-        | length == 0
-      - >-
-        (__quadlet_pod.service_options | default({})).keys()
-        | list
-        | intersect(__quadlet_reserved_single_value_options)
-        | length == 0
-      - >-
-        (__quadlet_pod.install_options | default({})).keys()
-        | list
-        | intersect(__quadlet_reserved_single_value_options | difference(['WantedBy']))
-        | length == 0
+        not (__quadlet_reserved_service_options
+        | intersect(__quadlet_pod.service_options | default({}) | list))
+    quiet: true
     fail_msg: >-
       Pod option maps cannot redefine a single-value key managed directly by the role.
   loop: "{{ __quadlet_user.pods | default([]) }}"
   loop_control:
     loop_var: __quadlet_pod
     label: "{{ __quadlet_pod.name }}"
-
-- name: "QUADLET | Validate container relationships"
-  ansible.builtin.assert:
-    that:
-      - __quadlet_container.start_with_pod is not defined or __quadlet_container.pod is defined
-      - >-
-        __quadlet_container.auto_update | default(quadlet_autoupdate) != 'registry'
-        or (__quadlet_container.image | regex_search('^(localhost|[^/]+[.:][^/]+)/')) is not none
-      - >-
-        __quadlet_container.enabled | default(true) | bool
-        or 'WantedBy' not in (__quadlet_container.install_options | default({}))
-    fail_msg: >-
-      Container relationships are invalid. start_with_pod requires pod,
-      registry auto-update requires a fully-qualified image, and enabled=false
-      cannot be combined with install_options.WantedBy.
-  loop: "{{ __quadlet_user.containers | default([]) }}"
-  loop_control:
-    loop_var: __quadlet_container
-    label: "{{ __quadlet_container.name }}"
-
-- name: "QUADLET | Validate reserved container option keys"
-  ansible.builtin.assert:
-    that:
-      - >-
-        (__quadlet_container.unit_options | default({})).keys()
-        | list
-        | intersect(__quadlet_reserved_single_value_options)
-        | length == 0
-      - >-
-        (__quadlet_container.container_options | default({})).keys()
-        | list
-        | intersect(__quadlet_reserved_single_value_options)
-        | length == 0
-      - >-
-        (__quadlet_container.service_options | default({})).keys()
-        | list
-        | intersect(__quadlet_reserved_single_value_options)
-        | length == 0
-      - >-
-        (__quadlet_container.install_options | default({})).keys()
-        | list
-        | intersect(__quadlet_reserved_single_value_options | difference(['WantedBy']))
-        | length == 0
-    fail_msg: >-
-      Container option maps cannot redefine a single-value key managed directly by the role.
-  loop: "{{ __quadlet_user.containers | default([]) }}"
-  loop_control:
-    loop_var: __quadlet_container
-    label: "{{ __quadlet_container.name }}"
-
-- name: "QUADLET | Validate secret separation from container environment"
-  ansible.builtin.assert:
-    that:
-      - >-
-        (__quadlet_container_secret.1.type | default('mount')) != 'env'
-        or __quadlet_container_secret.1.env_target not in
-        (__quadlet_container_secret.0.environment | default({}))
-      - >-
-        __quadlet_container_secret.1.value is not defined
-        or __quadlet_container_secret.1.value not in (
-          __quadlet_container_secret.0.environment
-          | default({})
-          | dict2items
-          | map(attribute='value')
-          | map('string')
-          | list
-        )
-    fail_msg: >-
-      Secret {{ __quadlet_container_secret.1.name }} must not duplicate a key or value from
-      quadlet_users[].containers[].environment.
-  loop: >-
-    {{
-      query(
-        'ansible.builtin.subelements',
-        __quadlet_user.containers | default([]),
-        'secrets',
-        {'skip_missing': true}
-      )
-    }}
-  loop_control:
-    loop_var: __quadlet_container_secret
-    label: "{{ __quadlet_container_secret.0.name }}/{{ __quadlet_container_secret.1.name }}"
-  no_log: true
