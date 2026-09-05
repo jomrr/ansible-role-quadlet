@@ -53,9 +53,7 @@ Tmpfs={{ tmpfs }}
 {% if __quadlet_container.exec is defined %}
 Exec={{ __quadlet_container.exec }}
 {% endif %}
-{% if __quadlet_container.auto_update is defined %}
-AutoUpdate={{ __quadlet_container.auto_update }}
-{% endif %}
+AutoUpdate={{ __quadlet_container.auto_update | default(quadlet_autoupdate) }}
 {% for option in __quadlet_container.container_options | default({}) | dict2items %}
 {% if option.value is sequence and option.value is not string %}
 {% for value in option.value %}

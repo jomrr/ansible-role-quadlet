@@ -30,7 +30,7 @@ Podman context.
 - Rootless Podman secrets from a supplied `value` or `value_file`
 - Systemd linger for every managed service user
 - Generated user service installation and runtime state
-- Rootless Podman auto-update timers when containers request auto-update
+- Configured rootless Podman auto-update timer state for every managed service user
 
 ### Not Managed
 
@@ -66,6 +66,8 @@ The following variables are part of the public role interface.
 | Name | Type | Required | Default | Description |
 | ---- | ---- | -------- | ------- | ----------- |
 | `quadlet_base_dir` | `path` | `false` | `/srv/containers` | Base directory for default container data paths. |
+| `quadlet_autoupdate` | `str` | `false` | `registry` | Podman auto-update policy rendered for every container. |
+| `quadlet_autoupdate_timer` | `bool` | `false` | `True` | Whether the Podman auto-update timer is enabled for service users. |
 | `quadlet_users` | `list` | `false` | [] | Service users and rootless Podman Quadlets managed by this role. |
 
 ## Managed Files
@@ -126,7 +128,7 @@ another target. Disabled items cannot set `install_options.WantedBy`.
 - `unit_options`, `service_options`, and `install_options` extend their named systemd sections. `container_options` and `pod_options` extend the matching Quadlet section. A list value repeats the key once per item.
 - Options rendered directly by the role cannot be overridden through an options map. Multi-value keys such as `Secret`, `Volume`, `PublishPort`, `Network`, and `DropCapability` may be added through a map.
 - `exec` renders `Exec=` and supplies arguments after the image entrypoint.
-- `auto_update` renders `AutoUpdate=` and causes the role to enable and start `podman-auto-update.timer` for the service user. Registry updates require a fully-qualified image reference.
+- `quadlet_autoupdate` supplies the default `AutoUpdate=` policy for every container. A container can override it with `auto_update: registry` or `auto_update: local`. Registry updates require fully-qualified image references. `quadlet_autoupdate_timer` controls the user timer.
 - `type: mount` renders `Secret=<name>` or `Secret=<name>,target=<target>` and lets Podman mount the secret as a file.
 - `type: env` renders `Secret=<name>,type=env,target=<ENV_NAME>` and exposes the secret through the container environment.
 - EnvironmentFile entries render ordinary `KEY="value"` settings and must not contain passwords, tokens, API keys, or private material.
@@ -295,8 +297,8 @@ secret and is not written to the EnvironmentFile or Quadlet.
 ### ntfy with entrypoint arguments and auto-update
 
 The container receives `serve` after its image entrypoint. Registry
-auto-update enables the service user's Podman auto-update timer, while
-the application-specific health command uses `container_options`.
+auto-update uses the global role default, while the application-specific health
+command uses `container_options`.
 
 ```yaml
 ---

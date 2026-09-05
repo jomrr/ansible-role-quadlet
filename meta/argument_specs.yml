@@ -18,6 +18,19 @@ argument_specs:
         required: false
         default: /srv/containers
         description: Base directory for default container data paths.
+      quadlet_autoupdate:
+        type: str
+        required: false
+        default: registry
+        choices:
+          - registry
+          - local
+        description: Podman auto-update policy rendered for every container.
+      quadlet_autoupdate_timer:
+        type: bool
+        required: false
+        default: true
+        description: Whether the Podman auto-update timer is enabled for service users.
       quadlet_users:
         type: list
         elements: dict
@@ -273,8 +286,7 @@ argument_specs:
                 choices:
                   - registry
                   - local
-                description: Quadlet `AutoUpdate=` policy; enables the user's Podman auto-update
-                  timer.
+                description: Optional override for the global `quadlet_autoupdate` policy.
               unit_options:
                 type: dict
                 required: false

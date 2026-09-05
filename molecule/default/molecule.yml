@@ -74,7 +74,7 @@ provisioner:
                 ports:
                   - "127.0.0.1:8080:80"
                 exec: "serve"
-                auto_update: "registry"
+                auto_update: "local"
                 container_options:
                   HealthCmd: "/bin/true"
                 restart_policy: "on-failure"

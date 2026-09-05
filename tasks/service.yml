@@ -36,4 +36,6 @@
   ansible.builtin.systemd_service:
     name: podman-auto-update.timer
     scope: user
-    enabled: "{{ __quadlet_auto_update_enabled }}"
+    enabled: "{{ quadlet_autoupdate_timer }}"
+    state: "{{ quadlet_autoupdate_timer | ternary('started', 'stopped') }}"
+  environment: "{{ __quadlet_user_systemd_env }}"

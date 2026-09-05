@@ -5,7 +5,7 @@
 - name: "QUADLET | Render root-owned user pod Quadlet"
   ansible.builtin.template:
     src: pod.pod.j2
-    dest: "/etc/containers/systemd/users/{{ __quadlet_user_uid }}/{{ __quadlet_pod.name }}.pod"
+    dest: "/etc/containers/systemd/users/{{ __quadlet_service_user.uid }}/{{ __quadlet_pod.name }}.pod"
     owner: root
     group: root
     mode: "0644"

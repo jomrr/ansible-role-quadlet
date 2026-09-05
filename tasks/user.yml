@@ -35,15 +35,6 @@
 - name: "QUADLET | Initialize service user state"
   ansible.builtin.set_fact:
     __quadlet_handler_user: "{{ __quadlet_user }}"
-    __quadlet_user_uid: "{{ __quadlet_service_user.uid }}"
-    __quadlet_auto_update_enabled: >-
-      {{
-        __quadlet_user.containers
-        | default([])
-        | selectattr('auto_update', 'defined')
-        | list
-        | length > 0
-      }}
     __quadlet_user_systemd_env:
       DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ __quadlet_service_user.uid }}/bus"
       HOME: "{{ __quadlet_user.home | default('/var/lib/' ~ __quadlet_user.name) }}"
@@ -58,7 +49,7 @@
     state: directory
   loop:
     - /etc/containers/systemd/users
-    - "/etc/containers/systemd/users/{{ __quadlet_user_uid }}"
+    - "/etc/containers/systemd/users/{{ __quadlet_service_user.uid }}"
   loop_control:
     loop_var: __quadlet_directory
 
@@ -72,7 +63,7 @@
 
 - name: "QUADLET | Ensure user manager is running"
   ansible.builtin.systemd_service:
-    name: "user@{{ __quadlet_user_uid }}.service"
+    name: "user@{{ __quadlet_service_user.uid }}.service"
     state: started
 
 - name: "QUADLET | Render user pods"

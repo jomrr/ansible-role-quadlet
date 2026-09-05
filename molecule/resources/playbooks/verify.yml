@@ -137,7 +137,7 @@
           - "'RestartSec=10s' in __quadlet_verify_vaultwarden_quadlet_content"
           - "'TimeoutStartSec=300' in __quadlet_verify_vaultwarden_quadlet_content"
           - "'Exec=serve' in __quadlet_verify_vaultwarden_quadlet_content"
-          - "'AutoUpdate=registry' in __quadlet_verify_vaultwarden_quadlet_content"
+          - "'AutoUpdate=local' in __quadlet_verify_vaultwarden_quadlet_content"
           - "'HealthCmd=/bin/true' in __quadlet_verify_vaultwarden_quadlet_content"
           - "'WantedBy=default.target' in __quadlet_verify_vaultwarden_quadlet_content"
 

@@ -6,6 +6,14 @@ quadlet_base_dir: /srv/containers
 # Base directory for default container data paths.
 # quadlet_base_dir: /opt/containers
 
+quadlet_autoupdate: registry
+# Podman auto-update policy rendered for every container.
+# quadlet_autoupdate: local
+
+quadlet_autoupdate_timer: true
+# Whether the Podman auto-update timer is enabled for service users.
+# quadlet_autoupdate_timer: false
+
 quadlet_users: []
 # Rootless Podman service users and their pods or containers.
 

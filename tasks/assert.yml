@@ -50,14 +50,14 @@
     that:
       - __quadlet_container.start_with_pod is not defined or __quadlet_container.pod is defined
       - >-
-        __quadlet_container.auto_update | default('local') != 'registry'
+        __quadlet_container.auto_update | default(quadlet_autoupdate) != 'registry'
         or (__quadlet_container.image | regex_search('^(localhost|[^/]+[.:][^/]+)/')) is not none
       - >-
         __quadlet_container.enabled | default(true) | bool
         or 'WantedBy' not in (__quadlet_container.install_options | default({}))
     fail_msg: >-
       Container relationships are invalid. start_with_pod requires pod,
-      auto_update=registry requires a fully-qualified image, and enabled=false
+      registry auto-update requires a fully-qualified image, and enabled=false
       cannot be combined with install_options.WantedBy.
   loop: "{{ __quadlet_user.containers | default([]) }}"
   loop_control:

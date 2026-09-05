@@ -48,7 +48,7 @@
 - name: "QUADLET | Render root-owned user Quadlet"
   ansible.builtin.template:
     src: container.container.j2
-    dest: "/etc/containers/systemd/users/{{ __quadlet_user_uid }}/{{ __quadlet_container.name }}.container"
+    dest: "/etc/containers/systemd/users/{{ __quadlet_service_user.uid }}/{{ __quadlet_container.name }}.container"
     owner: root
     group: root
     mode: "0644"
