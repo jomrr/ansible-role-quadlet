@@ -95,29 +95,29 @@ platforms:
     image: "docker.io/jomrr/molecule-almalinux:latest"
     pre_build_image: true
     override_command: false
-    systemd: true
+    systemd: "true"
   - name: "debian-latest-quadlet"
     image: "docker.io/jomrr/molecule-debian:latest"
     pre_build_image: true
     override_command: false
-    systemd: true
+    systemd: "true"
   - name: "fedora-latest-quadlet"
     image: "docker.io/jomrr/molecule-fedora:latest"
     pre_build_image: true
     override_command: false
-    systemd: true
+    systemd: "true"
   - name: "opensuse-leap-latest-quadlet"
     image: "docker.io/jomrr/molecule-opensuse-leap:latest"
     pre_build_image: true
     override_command: false
-    systemd: true
+    systemd: "true"
   - name: "opensuse-tumbleweed-latest-quadlet"
     image: "docker.io/jomrr/molecule-opensuse-tumbleweed:latest"
     pre_build_image: true
     override_command: false
-    systemd: true
+    systemd: "true"
   - name: "ubuntu-latest-quadlet"
     image: "docker.io/jomrr/molecule-ubuntu:latest"
     pre_build_image: true
     override_command: false
-    systemd: true
+    systemd: "true"
