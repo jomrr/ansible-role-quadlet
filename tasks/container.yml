@@ -27,7 +27,7 @@
     owner: root
     group: "{{ __quadlet_user.name }}"
     mode: "0640"
-  notify: "QUADLET | Restart user services"
+  notify: "restart user services"
 
 - name: "QUADLET | Manage rootless Podman secrets"
   become: true
@@ -43,7 +43,7 @@
     loop_var: __quadlet_secret
     label: "{{ __quadlet_secret.name }}"
   no_log: true
-  notify: "QUADLET | Restart user services"
+  notify: "restart user services"
 
 - name: "QUADLET | Render root-owned user Quadlet"
   ansible.builtin.template:
@@ -53,5 +53,5 @@
     group: root
     mode: "0644"
   notify:
-    - "QUADLET | Reload user manager"
-    - "QUADLET | Restart user services"
+    - "reload user manager"
+    - "restart user services"

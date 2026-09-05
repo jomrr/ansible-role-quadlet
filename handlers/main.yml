@@ -9,7 +9,7 @@
     scope: user
     daemon_reload: true
   environment: "{{ __quadlet_user_systemd_env }}"
-  listen: "QUADLET | Reload user manager"
+  listen: "reload user manager"
 
 - name: "QUADLET | Restart user pod services"
   become: true
@@ -24,7 +24,7 @@
   loop_control:
     loop_var: __quadlet_pod
     label: "{{ __quadlet_pod.name }}.service"
-  listen: "QUADLET | Restart user services"
+  listen: "restart user services"
 
 - name: "QUADLET | Restart user container services"
   become: true
@@ -39,4 +39,4 @@
   loop_control:
     loop_var: __quadlet_container
     label: "{{ __quadlet_container.name }}.service"
-  listen: "QUADLET | Restart user services"
+  listen: "restart user services"

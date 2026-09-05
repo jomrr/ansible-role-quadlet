@@ -14,5 +14,5 @@
     loop_var: __quadlet_pod
     label: "{{ __quadlet_pod.name }}"
   notify:
-    - "QUADLET | Reload user manager"
-    - "QUADLET | Restart user services"
+    - "reload user manager"
+    - "restart user services"
