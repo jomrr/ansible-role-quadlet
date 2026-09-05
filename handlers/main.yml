@@ -1,0 +1,42 @@
+---
+# role: quadlet
+# file: handlers/main.yml
+
+- name: "QUADLET | Reload user systemd manager"
+  become: true
+  become_user: "{{ __quadlet_handler_user.name }}"
+  ansible.builtin.systemd_service:
+    scope: user
+    daemon_reload: true
+  environment: "{{ __quadlet_user_systemd_env }}"
+  listen: "QUADLET | Reload user manager"
+
+- name: "QUADLET | Restart user pod services"
+  become: true
+  become_user: "{{ __quadlet_handler_user.name }}"
+  ansible.builtin.systemd_service:
+    name: "{{ (__quadlet_pod.service_name | default(__quadlet_pod.name ~ '-pod')) ~ '.service' }}"
+    scope: user
+    state: restarted
+  environment: "{{ __quadlet_user_systemd_env }}"
+  when: (__quadlet_pod.state | default('started')) == 'started'
+  loop: "{{ __quadlet_handler_user.pods | default([]) }}"
+  loop_control:
+    loop_var: __quadlet_pod
+    label: "{{ __quadlet_pod.name }}.service"
+  listen: "QUADLET | Restart user services"
+
+- name: "QUADLET | Restart user container services"
+  become: true
+  become_user: "{{ __quadlet_handler_user.name }}"
+  ansible.builtin.systemd_service:
+    name: "{{ __quadlet_container.name }}.service"
+    scope: user
+    state: restarted
+  environment: "{{ __quadlet_user_systemd_env }}"
+  when: (__quadlet_container.state | default('started')) == 'started'
+  loop: "{{ __quadlet_handler_user.containers | default([]) }}"
+  loop_control:
+    loop_var: __quadlet_container
+    label: "{{ __quadlet_container.name }}.service"
+  listen: "QUADLET | Restart user services"

@@ -2,20 +2,14 @@
 # role: quadlet
 # file: tasks/main.yml
 
-- name: "Quadlet | Validate role input"
-  ansible.builtin.assert:
-    that:
-      - quadlet_users is sequence
-    fail_msg: "quadlet_users must be a list."
-
-- name: "Quadlet | Install packages"
+- name: "QUADLET | Install packages"
   ansible.builtin.package:
     name: "{{ __quadlet_packages }}"
     state: present
 
-- name: "Quadlet | Manage service users"
+- name: "QUADLET | Manage service users"
   ansible.builtin.include_tasks: user.yml
   loop: "{{ quadlet_users }}"
   loop_control:
-    loop_var: quadlet_user
-    label: "{{ quadlet_user.name | default('unnamed') }}"
+    loop_var: __quadlet_user
+    label: "{{ __quadlet_user.name }}"

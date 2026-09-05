@@ -2,8 +2,12 @@
 # role: quadlet
 # file: defaults/main.yml
 
-# Rootless Podman service users and their pods or containers.
+quadlet_base_dir: /srv/containers
+# Base directory for default container data paths.
+# quadlet_base_dir: /opt/containers
+
 quadlet_users: []
+# Rootless Podman service users and their pods or containers.
 
 # Example: app container using PostgreSQL on the container host.
 # quadlet_users:
@@ -12,6 +16,7 @@ quadlet_users: []
 #       - name: vikunja
 #         image: docker.io/vikunja/vikunja:latest
 #         container_name: vikunja
+#         environment_file: /srv/containers/vikunja/env/vikunja.env
 #         environment:
 #           VIKUNJA_DATABASE_TYPE: postgres
 #           VIKUNJA_DATABASE_HOST: host.containers.internal
@@ -28,11 +33,12 @@ quadlet_users: []
 #           - /srv/containers/vikunja/data:/app/vikunja/files:Z
 #         ports:
 #           - 127.0.0.1:3456:3456
-#         exec_start_pre:
-#           - /bin/bash -c 'until pg_isready -h POSTGRES_HOST_IP -p 5432 -U vikunja; do sleep 10; done;'
 #         restart_policy: on-failure
-#         restart_sec: 10s
-#         timeout_start_sec: 300
+#         service_options:
+#           ExecStartPre: >-
+#             /bin/bash -c 'until pg_isready -h POSTGRES_PUBLIC_IP -p 5432 -U vikunja; do sleep 10; done;'
+#           RestartSec: 10s
+#           TimeoutStartSec: "300"
 
 # Example: app pod with PostgreSQL in the same pod network namespace.
 # quadlet_users:
@@ -49,6 +55,7 @@ quadlet_users: []
 #         image: docker.io/library/postgres:16-alpine
 #         container_name: vikunja-db
 #         pod: vikunja
+#         environment_file: /srv/containers/vikunja-db/env/vikunja-db.env
 #         environment:
 #           POSTGRES_DB: vikunja
 #           POSTGRES_USER: vikunja
@@ -64,6 +71,7 @@ quadlet_users: []
 #         image: docker.io/vikunja/vikunja:latest
 #         container_name: vikunja
 #         pod: vikunja
+#         environment_file: /srv/containers/vikunja/env/vikunja.env
 #         environment:
 #           VIKUNJA_DATABASE_TYPE: postgres
 #           VIKUNJA_DATABASE_HOST: 127.0.0.1
@@ -80,3 +88,24 @@ quadlet_users: []
 #           - /srv/containers/vikunja/data:/app/vikunja/files:Z
 #         enabled: false
 #         state: created
+
+# Example: standalone ntfy server with entrypoint arguments and auto-update.
+# quadlet_users:
+#   - name: ntfy
+#     containers:
+#       - name: ntfy
+#         image: docker.io/binwiederhier/ntfy:latest
+#         container_name: ntfy
+#         environment_file: /srv/containers/ntfy/env/ntfy.env
+#         secrets: []
+#         exec: serve
+#         auto_update: registry
+#         environment:
+#           NTFY_BASE_URL: https://ntfy.example.invalid
+#           NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+#         volumes:
+#           - /srv/containers/ntfy/data:/var/cache/ntfy:Z
+#         ports:
+#           - 127.0.0.1:8080:80
+#         container_options:
+#           HealthCmd: wget -q --tries=1 http://127.0.0.1:80/v1/health -O -

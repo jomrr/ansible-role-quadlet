@@ -1,0 +1,39 @@
+---
+# role: quadlet
+# file: tasks/service.yml
+
+- name: "QUADLET | Apply requested user pod service states"
+  become: true
+  become_user: "{{ __quadlet_user.name }}"
+  ansible.builtin.systemd_service:
+    name: "{{ (__quadlet_pod.service_name | default(__quadlet_pod.name ~ '-pod')) ~ '.service' }}"
+    scope: user
+    state: "{{ __quadlet_pod.state | default('started') }}"
+  environment: "{{ __quadlet_user_systemd_env }}"
+  when: (__quadlet_pod.state | default('started')) != 'created'
+  loop: "{{ __quadlet_user.pods | default([]) }}"
+  loop_control:
+    loop_var: __quadlet_pod
+    label: "{{ __quadlet_pod.name }}"
+
+- name: "QUADLET | Apply requested user container service states"
+  become: true
+  become_user: "{{ __quadlet_user.name }}"
+  ansible.builtin.systemd_service:
+    name: "{{ __quadlet_container.name }}.service"
+    scope: user
+    state: "{{ __quadlet_container.state | default('started') }}"
+  environment: "{{ __quadlet_user_systemd_env }}"
+  when: (__quadlet_container.state | default('started')) != 'created'
+  loop: "{{ __quadlet_user.containers | default([]) }}"
+  loop_control:
+    loop_var: __quadlet_container
+    label: "{{ __quadlet_container.name }}.service"
+
+- name: "QUADLET | Manage Podman auto-update timer"
+  become: true
+  become_user: "{{ __quadlet_user.name }}"
+  ansible.builtin.systemd_service:
+    name: podman-auto-update.timer
+    scope: user
+    enabled: "{{ __quadlet_auto_update_enabled }}"

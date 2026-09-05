@@ -2,61 +2,17 @@
 # role: quadlet
 # file: tasks/pod.yml
 
-- name: "Quadlet | Validate pod"
-  ansible.builtin.assert:
-    that:
-      - quadlet_pod.name is defined
-      - quadlet_pod.name | length > 0
-      - quadlet_pod.ports | default([]) is sequence
-      - quadlet_pod.networks | default([]) is sequence
-      - quadlet_pod.volumes | default([]) is sequence
-      - quadlet_pod.labels | default([]) is sequence
-      - quadlet_pod.add_hosts | default([]) is sequence
-      - quadlet_pod.dns | default([]) is sequence
-      - quadlet_pod.dns_options | default([]) is sequence
-      - quadlet_pod.dns_search | default([]) is sequence
-      - quadlet_pod.network_aliases | default([]) is sequence
-      - quadlet_pod.uid_maps | default([]) is sequence
-      - quadlet_pod.gid_maps | default([]) is sequence
-      - quadlet_pod.exec_start_pre | default([]) is sequence
-      - quadlet_pod.exit_policy | default('stop') in ['stop', 'continue']
-    fail_msg: "Each pod needs at least a name; list fields must use the documented types."
-
-- name: "Quadlet | Set pod facts"
-  ansible.builtin.set_fact:
-    __quadlet_pod_name: "{{ quadlet_pod.name }}"
-    __quadlet_pod_service_name: "{{ quadlet_pod.service_name | default(quadlet_pod.name ~ '-pod') }}"
-    __quadlet_pod_enabled: "{{ quadlet_pod.enabled | default(true) | bool }}"
-    __quadlet_pod_state: "{{ quadlet_pod.state | default('started') }}"
-
-- name: "Quadlet | Set pod service fact"
-  ansible.builtin.set_fact:
-    __quadlet_pod_manage_service: >-
-      {{
-        (__quadlet_pod_enabled | bool)
-        or (__quadlet_pod_state != 'created')
-      }}
-
-- name: "Quadlet | Render root-owned user pod Quadlet"
+- name: "QUADLET | Render root-owned user pod Quadlet"
   ansible.builtin.template:
     src: pod.pod.j2
-    dest: "/etc/containers/systemd/users/{{ __quadlet_user_uid }}/{{ __quadlet_pod_name }}.pod"
+    dest: "/etc/containers/systemd/users/{{ __quadlet_user_uid }}/{{ __quadlet_pod.name }}.pod"
     owner: root
     group: root
     mode: "0644"
-  register: __quadlet_pod_quadlet
-
-- name: "Quadlet | Manage user pod service"
-  become: true
-  become_user: "{{ __quadlet_user_name }}"
-  ansible.builtin.systemd_service:
-    name: "{{ __quadlet_pod_service_name }}.service"
-    scope: user
-    enabled: "{{ __quadlet_pod_enabled }}"
-    state: "{{ (__quadlet_pod_state == 'created') | ternary(omit, __quadlet_pod_state) }}"
-    daemon_reload: "{{ __quadlet_pod_quadlet.changed }}"
-  environment:
-    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ __quadlet_user_uid }}/bus"
-    HOME: "{{ __quadlet_user_home }}"
-    XDG_RUNTIME_DIR: "/run/user/{{ __quadlet_user_uid }}"
-  when: __quadlet_pod_manage_service | bool
+  loop: "{{ __quadlet_user.pods | default([]) }}"
+  loop_control:
+    loop_var: __quadlet_pod
+    label: "{{ __quadlet_pod.name }}"
+  notify:
+    - "QUADLET | Reload user manager"
+    - "QUADLET | Restart user services"

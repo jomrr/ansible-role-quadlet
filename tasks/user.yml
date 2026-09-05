@@ -2,134 +2,91 @@
 # role: quadlet
 # file: tasks/user.yml
 
-- name: "Quadlet | Validate service user"
-  ansible.builtin.assert:
-    that:
-      - quadlet_user.name is defined
-      - quadlet_user.name | length > 0
-      - quadlet_user.pods | default([]) is sequence
-      - quadlet_user.containers | default([]) is sequence
-    fail_msg: "Each quadlet_users item needs a name; pods and containers must be lists."
-
-- name: "Quadlet | Set service user facts"
-  ansible.builtin.set_fact:
-    __quadlet_user_name: "{{ quadlet_user.name }}"
-    __quadlet_user_home: "{{ quadlet_user.home | default('/var/lib/' ~ quadlet_user.name) }}"
-    __quadlet_user_shell: "{{ quadlet_user.shell | default('/usr/sbin/nologin') }}"
-    __quadlet_user_pods: "{{ quadlet_user.pods | default([]) }}"
-    __quadlet_user_containers: "{{ quadlet_user.containers | default([]) }}"
-
-- name: "Quadlet | Set service user service facts"
-  ansible.builtin.set_fact:
-    __quadlet_user_has_service_work: >-
-      {%- set ns = namespace(value=false) -%}
-      {%- for pod in __quadlet_user_pods -%}
-      {%- if (pod.enabled | default(true) | bool) or (pod.state | default('started') != 'created') -%}
-      {%- set ns.value = true -%}
-      {%- endif -%}
-      {%- endfor -%}
-      {%- for container in __quadlet_user_containers -%}
-      {%- if (container.enabled | default(true) | bool) or (container.state | default('started') != 'created') -%}
-      {%- set ns.value = true -%}
-      {%- endif -%}
-      {%- endfor -%}
-      {{ ns.value }}
-
-- name: "Quadlet | Ensure service group exists"
+- name: "QUADLET | Ensure service group exists"
   ansible.builtin.group:
-    name: "{{ __quadlet_user_name }}"
+    name: "{{ __quadlet_user.name }}"
     system: true
     state: present
 
-- name: "Quadlet | Lookup service user before creation"
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ __quadlet_user_name }}"
-    fail_key: false
-
-- name: "Quadlet | Set service useradd command facts"
-  ansible.builtin.set_fact:
-    __quadlet_useradd_base_argv:
-      - useradd
-      - --system
-      - --add-subids-for-system
-      - --create-home
-      - --home-dir
-      - "{{ __quadlet_user_home }}"
-      - --shell
-      - "{{ __quadlet_user_shell }}"
-      - --gid
-      - "{{ __quadlet_user_name }}"
-    __quadlet_useradd_uid_argv: >-
-      {{ ['--uid', quadlet_user.uid | string] if quadlet_user.uid is defined else [] }}
-
-- name: "Quadlet | Ensure service user exists"
+- name: "QUADLET | Create service user with subordinate IDs"
   ansible.builtin.command:
-    argv: "{{ __quadlet_useradd_base_argv + __quadlet_useradd_uid_argv + [__quadlet_user_name] }}"
-  register: __quadlet_useradd_create
-  changed_when: __quadlet_useradd_create.rc == 0
-  when: ansible_facts.getent_passwd[__quadlet_user_name] is none
+    cmd: >-
+      useradd --system --add-subids-for-system --gid {{ __quadlet_user.name }}
+      {{ '--uid ' ~ __quadlet_user.uid if __quadlet_user.uid is defined else '' }}
+      {{ __quadlet_user.name }}
+  register: __quadlet_useradd
+  changed_when: __quadlet_useradd.rc == 0
+  failed_when: __quadlet_useradd.rc not in [0, 9]
 
-- name: "Quadlet | Lookup service user"
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ __quadlet_user_name }}"
+- name: "QUADLET | Manage service user"
+  ansible.builtin.user:
+    name: "{{ __quadlet_user.name }}"
+    uid: "{{ __quadlet_user.uid | default(omit) }}"
+    home: "{{ __quadlet_user.home | default('/var/lib/' ~ __quadlet_user.name) }}"
+    shell: "{{ __quadlet_user.shell | default('/usr/sbin/nologin') }}"
+    group: "{{ __quadlet_user.name }}"
+    create_home: true
+    state: present
+  register: __quadlet_service_user
 
-- name: "Quadlet | Validate service user account"
-  ansible.builtin.assert:
-    that:
-      - quadlet_user.uid is not defined or ansible_facts.getent_passwd[__quadlet_user_name][1] | int == quadlet_user.uid | int
-      - ansible_facts.getent_passwd[__quadlet_user_name][4] == __quadlet_user_home
-      - ansible_facts.getent_passwd[__quadlet_user_name][5] == __quadlet_user_shell
-    fail_msg: >-
-      Existing service user {{ __quadlet_user_name }} does not match the requested
-      uid, home, or shell. The role only creates service users and does not modify
-      existing accounts with usermod.
+- name: "QUADLET | Validate service user configuration"
+  ansible.builtin.import_tasks: assert.yml
 
-- name: "Quadlet | Set service user UID fact"
+- name: "QUADLET | Initialize service user state"
   ansible.builtin.set_fact:
-    __quadlet_user_uid: "{{ ansible_facts.getent_passwd[__quadlet_user_name][1] }}"
+    __quadlet_handler_user: "{{ __quadlet_user }}"
+    __quadlet_user_uid: "{{ __quadlet_service_user.uid }}"
+    __quadlet_auto_update_enabled: >-
+      {{
+        __quadlet_user.containers
+        | default([])
+        | selectattr('auto_update', 'defined')
+        | list
+        | length > 0
+      }}
+    __quadlet_user_systemd_env:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ __quadlet_service_user.uid }}/bus"
+      HOME: "{{ __quadlet_user.home | default('/var/lib/' ~ __quadlet_user.name) }}"
+      XDG_RUNTIME_DIR: "/run/user/{{ __quadlet_service_user.uid }}"
 
-- name: "Quadlet | Ensure rootless user Quadlet root exists"
+- name: "QUADLET | Ensure rootless user Quadlet directories exist"
   ansible.builtin.file:
-    path: /etc/containers/systemd/users
+    path: "{{ __quadlet_directory }}"
     owner: root
     group: root
     mode: "0755"
     state: directory
+  loop:
+    - /etc/containers/systemd/users
+    - "/etc/containers/systemd/users/{{ __quadlet_user_uid }}"
+  loop_control:
+    loop_var: __quadlet_directory
 
-- name: "Quadlet | Ensure rootless user Quadlet directory exists"
-  ansible.builtin.file:
-    path: "/etc/containers/systemd/users/{{ __quadlet_user_uid }}"
-    owner: root
-    group: root
-    mode: "0755"
-    state: directory
-
-- name: "Quadlet | Enable linger for service user"
+- name: "QUADLET | Enable linger for service user"
   ansible.builtin.command:
     argv:
       - loginctl
       - enable-linger
-      - "{{ __quadlet_user_name }}"
-    creates: "/var/lib/systemd/linger/{{ __quadlet_user_name }}"
+      - "{{ __quadlet_user.name }}"
+    creates: "/var/lib/systemd/linger/{{ __quadlet_user.name }}"
 
-- name: "Quadlet | Ensure user manager is running"
+- name: "QUADLET | Ensure user manager is running"
   ansible.builtin.systemd_service:
     name: "user@{{ __quadlet_user_uid }}.service"
     state: started
-  when: __quadlet_user_has_service_work | bool
 
-- name: "Quadlet | Manage pods for service user"
-  ansible.builtin.include_tasks: pod.yml
-  loop: "{{ __quadlet_user_pods }}"
-  loop_control:
-    loop_var: quadlet_pod
-    label: "{{ quadlet_pod.name | default('unnamed') }}"
+- name: "QUADLET | Render user pods"
+  ansible.builtin.import_tasks: pod.yml
 
-- name: "Quadlet | Manage containers for service user"
+- name: "QUADLET | Render containers for service user"
   ansible.builtin.include_tasks: container.yml
-  loop: "{{ __quadlet_user_containers }}"
+  loop: "{{ __quadlet_user.containers | default([]) }}"
   loop_control:
-    loop_var: quadlet_container
-    label: "{{ quadlet_container.name | default('unnamed') }}"
+    loop_var: __quadlet_container
+    label: "{{ __quadlet_container.name }}"
+
+- name: "QUADLET | Apply user service changes"
+  ansible.builtin.meta: flush_handlers
+
+- name: "QUADLET | Manage user services"
+  ansible.builtin.import_tasks: service.yml

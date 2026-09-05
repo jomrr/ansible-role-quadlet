@@ -8,14 +8,15 @@ repos:
     hooks:
       - id: ansible-lint
         always_run: false
-        entry: ansible-lint --force-color .
+        entry: ansible-lint --force-color --offline --profile production .
         language: python
         pass_filenames: false
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.16.3
     hooks:
       - id: commitizen
-        stages: [commit-msg]
+        stages:
+          - commit-msg
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

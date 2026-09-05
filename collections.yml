@@ -3,5 +3,6 @@
 # file: collections.yml
 
 collections:
+  - name: ansible.posix
   - name: community.general
-    version: '>=12.0.0'
+  - name: containers.podman

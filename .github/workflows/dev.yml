@@ -8,6 +8,13 @@ on:
   push:
     branches:
       - dev
+    paths-ignore:
+      - .gitignore
+      - .pre-commit-config.yaml
+      - LICENSE
+      - README.md
+      - docs/**
+      - pyproject.toml
 
 permissions:
   contents: read

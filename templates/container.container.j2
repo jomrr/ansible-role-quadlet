@@ -1,23 +1,27 @@
 # Managed by Ansible.
 
 [Unit]
-Description={{ quadlet_container.description | default('Rootless Podman container ' ~ __quadlet_container_name) }}
-After=network-online.target
-Wants=network-online.target
+Description=Rootless Podman container {{ __quadlet_container.name }}
+{% for option in __quadlet_container.unit_options | default({}) | dict2items %}
+{% if option.value is sequence and option.value is not string %}
+{% for value in option.value %}
+{{ option.key }}={{ value }}
+{% endfor %}
+{% else %}
+{{ option.key }}={{ option.value }}
+{% endif %}
+{% endfor %}
 
 [Container]
-Image={{ quadlet_container.image }}
-{% if quadlet_container.image_pull_policy is defined %}
-Pull={{ quadlet_container.image_pull_policy }}
-{% endif %}
-ContainerName={{ quadlet_container.container_name | default(__quadlet_container_name) }}
-{% if quadlet_container.pod is defined %}
-{% set quadlet_container_pod = quadlet_container.pod | string %}
+Image={{ __quadlet_container.image }}
+ContainerName={{ __quadlet_container.container_name | default(__quadlet_container.name) }}
+{% if __quadlet_container.pod is defined %}
+{% set quadlet_container_pod = __quadlet_container.pod | string %}
 Pod={{ quadlet_container_pod if quadlet_container_pod | regex_search('\.pod$') else quadlet_container_pod ~ '.pod' }}
-StartWithPod={{ (quadlet_container.start_with_pod | default(true) | bool) | ternary('true', 'false') }}
+StartWithPod={{ (__quadlet_container.start_with_pod | default(true) | bool) | ternary('true', 'false') }}
 {% endif %}
-EnvironmentFile={{ __quadlet_container_env_file }}
-{% for secret in quadlet_container.secrets | default([]) %}
+EnvironmentFile={{ __quadlet_container.environment_file }}
+{% for secret in __quadlet_container.secrets | default([]) %}
 {% set secret_type = secret.type | default('mount') %}
 {% if secret_type == 'env' %}
 Secret={{ secret.name }},type=env,target={{ secret.env_target }}
@@ -27,75 +31,63 @@ Secret={{ secret.name }},target={{ secret.target }}
 Secret={{ secret.name }}
 {% endif %}
 {% endfor %}
-{% for volume in quadlet_container.volumes | default([]) %}
-{% if volume is mapping %}
-{% set volume_source = volume.source | default(volume.src | default('')) %}
-{% set volume_target = volume.target | default(volume.dest | default(volume.destination | default(''))) %}
-{% if volume.options is defined %}
-{% set volume_options = volume.options if volume.options is string else volume.options | join(',') %}
-Volume={{ volume_source }}:{{ volume_target }}:{{ volume_options }}
-{% else %}
-Volume={{ volume_source }}:{{ volume_target }}
-{% endif %}
-{% else %}
+{% for volume in __quadlet_container.volumes | default([]) %}
 Volume={{ volume }}
-{% endif %}
 {% endfor %}
-{% for port in quadlet_container.ports | default([]) %}
-{% if port is mapping %}
-{% set publish_host_ip = (port.host_ip ~ ':') if port.host_ip is defined else '' %}
-{% set publish_host_port = port.host_port | default(port.published | default('')) %}
-{% set publish_container_port = port.container_port | default(port.target | default('')) %}
-PublishPort={{ publish_host_ip }}{{ publish_host_port }}:{{ publish_container_port }}{% if port.protocol is defined %}/{{ port.protocol }}{% endif %}
-{% else %}
+{% for port in __quadlet_container.ports | default([]) %}
 PublishPort={{ port }}
-{% endif %}
 {% endfor %}
-{% for network in quadlet_container.networks | default([]) %}
-{% if network is mapping %}
-Network={{ network.name }}
-{% else %}
+{% for network in __quadlet_container.networks | default([]) %}
 Network={{ network }}
-{% endif %}
 {% endfor %}
-ReadOnly={{ (quadlet_container.read_only | default(true) | bool) | ternary('true', 'false') }}
-ReadOnlyTmpfs={{ (quadlet_container.read_only_tmpfs | default(true) | bool) | ternary('true', 'false') }}
-NoNewPrivileges={{ (quadlet_container.no_new_privileges | default(true) | bool) | ternary('true', 'false') }}
-{% for capability in quadlet_container.drop_capabilities | default(['all']) %}
+ReadOnly={{ (__quadlet_container.read_only | default(true) | bool) | ternary('true', 'false') }}
+ReadOnlyTmpfs={{ (__quadlet_container.read_only_tmpfs | default(true) | bool) | ternary('true', 'false') }}
+NoNewPrivileges={{ (__quadlet_container.no_new_privileges | default(true) | bool) | ternary('true', 'false') }}
+{% for capability in __quadlet_container.drop_capabilities | default(['all']) %}
 DropCapability={{ capability }}
 {% endfor %}
-PidsLimit={{ quadlet_container.pids_limit | default(512) }}
-{% for tmpfs in quadlet_container.tmpfs | default([]) %}
-{% if tmpfs is mapping %}
-{% if tmpfs.options is defined %}
-{% set tmpfs_options = tmpfs.options if tmpfs.options is string else tmpfs.options | join(',') %}
-Tmpfs={{ tmpfs.target }}:{{ tmpfs_options }}
-{% else %}
-Tmpfs={{ tmpfs.target }}
-{% endif %}
-{% else %}
+PidsLimit={{ __quadlet_container.pids_limit | default(512) }}
+{% for tmpfs in __quadlet_container.tmpfs | default([]) %}
 Tmpfs={{ tmpfs }}
+{% endfor %}
+{% if __quadlet_container.exec is defined %}
+Exec={{ __quadlet_container.exec }}
+{% endif %}
+{% if __quadlet_container.auto_update is defined %}
+AutoUpdate={{ __quadlet_container.auto_update }}
+{% endif %}
+{% for option in __quadlet_container.container_options | default({}) | dict2items %}
+{% if option.value is sequence and option.value is not string %}
+{% for value in option.value %}
+{{ option.key }}={{ value }}
+{% endfor %}
+{% else %}
+{{ option.key }}={{ option.value }}
 {% endif %}
 {% endfor %}
 
 [Service]
-{% for command in quadlet_container.exec_start_pre | default([]) %}
-ExecStartPre={{ command }}
-{% endfor %}
-Restart={{ quadlet_container.restart_policy | default('always') }}
-{% if quadlet_container.restart_sec is defined %}
-RestartSec={{ quadlet_container.restart_sec }}
-{% endif %}
-{% if quadlet_container.timeout_start_sec is defined %}
-TimeoutStartSec={{ quadlet_container.timeout_start_sec }}
-{% endif %}
-
-[Install]
-{% set quadlet_wanted_by = quadlet_container.wanted_by | default('default.target') %}
-{% if quadlet_wanted_by is sequence and quadlet_wanted_by is not string %}
-{% for target in quadlet_wanted_by %}
-WantedBy={{ target }}
+Restart={{ __quadlet_container.restart_policy | default('always') }}
+{% for option in __quadlet_container.service_options | default({}) | dict2items %}
+{% if option.value is sequence and option.value is not string %}
+{% for value in option.value %}
+{{ option.key }}={{ value }}
 {% endfor %}
 {% else %}
-WantedBy={{ quadlet_wanted_by }}
+{{ option.key }}={{ option.value }}
 {% endif %}
+{% endfor %}
+
+[Install]
+{% if __quadlet_container.enabled | default(true) | bool and 'WantedBy' not in (__quadlet_container.install_options | default({})) %}
+WantedBy=default.target
+{% endif %}
+{% for option in __quadlet_container.install_options | default({}) | dict2items %}
+{% if option.value is sequence and option.value is not string %}
+{% for value in option.value %}
+{{ option.key }}={{ value }}
+{% endfor %}
+{% else %}
+{{ option.key }}={{ option.value }}
+{% endif %}
+{% endfor %}

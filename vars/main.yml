@@ -5,3 +5,20 @@
 # Internal packages required to render and run rootless Podman Quadlets.
 __quadlet_packages:
   - podman
+
+# Single-value keys rendered directly by the role must not be overridden by option maps.
+__quadlet_reserved_single_value_options:
+  - Image
+  - ContainerName
+  - Pod
+  - StartWithPod
+  - EnvironmentFile
+  - ReadOnly
+  - ReadOnlyTmpfs
+  - NoNewPrivileges
+  - PidsLimit
+  - Exec
+  - AutoUpdate
+  - Restart
+  - ServiceName
+  - WantedBy
