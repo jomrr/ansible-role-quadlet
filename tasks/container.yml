@@ -5,6 +5,17 @@
 - name: "QUADLET | Validate container configuration"
   ansible.builtin.import_tasks: assert-container.yml
 
+- name: "QUADLET | Initialize container data directory"
+  ansible.builtin.command:
+    argv:
+      - install
+      - --directory
+      - "--owner={{ __quadlet_user.name }}"
+      - "--group={{ __quadlet_user.name }}"
+      - --mode=0750
+      - "{{ quadlet_base_dir }}/{{ __quadlet_container.name }}/data"
+    creates: "{{ quadlet_base_dir }}/{{ __quadlet_container.name }}/data"
+
 - name: "QUADLET | Ensure container directories exist"
   ansible.builtin.file:
     path: "{{ __quadlet_directory.path }}"
@@ -17,8 +28,6 @@
       owner: root
     - path: "{{ __quadlet_container.environment_file | dirname }}"
       owner: root
-    - path: "{{ quadlet_base_dir }}/{{ __quadlet_container.name }}/data"
-      owner: "{{ __quadlet_user.name }}"
   loop_control:
     loop_var: __quadlet_directory
     label: "{{ __quadlet_directory.path }}"
