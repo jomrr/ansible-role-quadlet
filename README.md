@@ -84,6 +84,13 @@ behavior of their underlying Ansible modules. Initial service-user
 creation uses `useradd` because `ansible.builtin.user` cannot request
 subordinate IDs for system accounts.
 
+When a service user does not exist, check mode predicts its creation but
+does not check user-dependent resources. The user module does not return
+a UID for a simulated creation, even when `uid` is explicitly configured.
+The role skips that user's dependent tasks without creating an account
+or substituting the inventory UID. Existing service users continue through
+the user-dependent tasks in check mode, including in mixed user lists.
+
 ## Service Behavior
 
 Generated container services are user services named `<name>.service` from

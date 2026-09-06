@@ -29,69 +29,72 @@
     state: present
   register: __quadlet_service_user
 
-- name: "QUADLET | Initialize service user state"
-  ansible.builtin.set_fact:
-    __quadlet_handler_user:
-      name: "{{ __quadlet_user.name }}"
-      pods: >-
-        {{
-          __quadlet_user.pods | default([])
-          | map('dict2items')
-          | map('selectattr', 'key', 'in', ['name', 'service_name', 'state'])
-          | map('items2dict')
-          | list
-        }}
-      containers: >-
-        {{
-          __quadlet_user.containers | default([])
-          | map('dict2items')
-          | map('selectattr', 'key', 'in', ['name', 'state'])
-          | map('items2dict')
-          | list
-        }}
-    __quadlet_user_systemd_env:
-      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ __quadlet_service_user.uid }}/bus"
-      HOME: "{{ __quadlet_user.home | default('/var/lib/' ~ __quadlet_user.name) }}"
-      XDG_RUNTIME_DIR: "/run/user/{{ __quadlet_service_user.uid }}"
+- name: "QUADLET | Configure service user resources"
+  when: not ansible_check_mode or __quadlet_service_user.uid is defined
+  block:
+    - name: "QUADLET | Initialize service user state"
+      ansible.builtin.set_fact:
+        __quadlet_handler_user:
+          name: "{{ __quadlet_user.name }}"
+          pods: >-
+            {{
+              __quadlet_user.pods | default([])
+              | map('dict2items')
+              | map('selectattr', 'key', 'in', ['name', 'service_name', 'state'])
+              | map('items2dict')
+              | list
+            }}
+          containers: >-
+            {{
+              __quadlet_user.containers | default([])
+              | map('dict2items')
+              | map('selectattr', 'key', 'in', ['name', 'state'])
+              | map('items2dict')
+              | list
+            }}
+        __quadlet_user_systemd_env:
+          DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ __quadlet_service_user.uid }}/bus"
+          HOME: "{{ __quadlet_user.home | default('/var/lib/' ~ __quadlet_user.name) }}"
+          XDG_RUNTIME_DIR: "/run/user/{{ __quadlet_service_user.uid }}"
 
-- name: "QUADLET | Ensure rootless user Quadlet directories exist"
-  ansible.builtin.file:
-    path: "{{ __quadlet_directory }}"
-    owner: root
-    group: root
-    mode: "0755"
-    state: directory
-  loop:
-    - /etc/containers/systemd/users
-    - "/etc/containers/systemd/users/{{ __quadlet_service_user.uid }}"
-  loop_control:
-    loop_var: __quadlet_directory
+    - name: "QUADLET | Ensure rootless user Quadlet directories exist"
+      ansible.builtin.file:
+        path: "{{ __quadlet_directory }}"
+        owner: root
+        group: root
+        mode: "0755"
+        state: directory
+      loop:
+        - /etc/containers/systemd/users
+        - "/etc/containers/systemd/users/{{ __quadlet_service_user.uid }}"
+      loop_control:
+        loop_var: __quadlet_directory
 
-- name: "QUADLET | Enable linger for service user"
-  ansible.builtin.command:
-    argv:
-      - loginctl
-      - enable-linger
-      - "{{ __quadlet_user.name }}"
-    creates: "/var/lib/systemd/linger/{{ __quadlet_user.name }}"
+    - name: "QUADLET | Enable linger for service user"
+      ansible.builtin.command:
+        argv:
+          - loginctl
+          - enable-linger
+          - "{{ __quadlet_user.name }}"
+        creates: "/var/lib/systemd/linger/{{ __quadlet_user.name }}"
 
-- name: "QUADLET | Ensure user manager is running"
-  ansible.builtin.systemd_service:
-    name: "user@{{ __quadlet_service_user.uid }}.service"
-    state: started
+    - name: "QUADLET | Ensure user manager is running"
+      ansible.builtin.systemd_service:
+        name: "user@{{ __quadlet_service_user.uid }}.service"
+        state: started
 
-- name: "QUADLET | Render user pods"
-  ansible.builtin.import_tasks: pod.yml
+    - name: "QUADLET | Render user pods"
+      ansible.builtin.import_tasks: pod.yml
 
-- name: "QUADLET | Render containers for service user"
-  ansible.builtin.include_tasks: container.yml
-  loop: "{{ __quadlet_user.containers | default([]) }}"
-  loop_control:
-    loop_var: __quadlet_container
-    label: "{{ __quadlet_container.name }}"
+    - name: "QUADLET | Render containers for service user"
+      ansible.builtin.include_tasks: container.yml
+      loop: "{{ __quadlet_user.containers | default([]) }}"
+      loop_control:
+        loop_var: __quadlet_container
+        label: "{{ __quadlet_container.name }}"
 
-- name: "QUADLET | Apply user service changes"
-  ansible.builtin.meta: flush_handlers
+    - name: "QUADLET | Apply user service changes"
+      ansible.builtin.meta: flush_handlers
 
-- name: "QUADLET | Manage user services"
-  ansible.builtin.import_tasks: service.yml
+    - name: "QUADLET | Manage user services"
+      ansible.builtin.import_tasks: service.yml
