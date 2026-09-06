@@ -31,7 +31,24 @@
 
 - name: "QUADLET | Initialize service user state"
   ansible.builtin.set_fact:
-    __quadlet_handler_user: "{{ __quadlet_user }}"
+    __quadlet_handler_user:
+      name: "{{ __quadlet_user.name }}"
+      pods: >-
+        {{
+          __quadlet_user.pods | default([])
+          | map('dict2items')
+          | map('selectattr', 'key', 'in', ['name', 'service_name', 'state'])
+          | map('items2dict')
+          | list
+        }}
+      containers: >-
+        {{
+          __quadlet_user.containers | default([])
+          | map('dict2items')
+          | map('selectattr', 'key', 'in', ['name', 'state'])
+          | map('items2dict')
+          | list
+        }}
     __quadlet_user_systemd_env:
       DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ __quadlet_service_user.uid }}/bus"
       HOME: "{{ __quadlet_user.home | default('/var/lib/' ~ __quadlet_user.name) }}"
