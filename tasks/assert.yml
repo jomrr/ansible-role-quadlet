@@ -2,6 +2,22 @@
 # role: quadlet
 # file: tasks/assert.yml
 
+- name: "QUADLET | Validate Quadlet file names"
+  ansible.builtin.assert:
+    that:
+      - __quadlet_name not in ['', '.', '..']
+      - __quadlet_name == (__quadlet_name | basename)
+    fail_msg: "Quadlet names must be non-empty file names, not paths."
+    quiet: true
+  loop: >-
+    {{
+      ((__quadlet_user.pods | default([])) + (__quadlet_user.containers | default([])))
+      | map(attribute='name')
+    }}
+  loop_control:
+    loop_var: __quadlet_name
+    label: "{{ __quadlet_name }}"
+
 - name: "QUADLET | Validate pod install options"
   ansible.builtin.assert:
     that:
