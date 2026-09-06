@@ -109,9 +109,9 @@
           - "'molecule-db-secret' not in __quadlet_verify_vikunja_env_content"
           - "'molecule-service-secret' not in __quadlet_verify_vikunja_env_content"
           - "'molecule-admin-token' not in __quadlet_verify_vaultwarden_env_content"
-          - "'VIKUNJA_DATABASE_PASSWORD_FILE=\"/run/secrets/vikunja_db_password\"' in __quadlet_verify_vikunja_env_content"
-          - "'VIKUNJA_SERVICE_SECRET_FILE=\"/run/secrets/vikunja_service_secret\"' in __quadlet_verify_vikunja_env_content"
-          - "'VIKUNJA_SERVICE_NAME=\"Grüße\"' in __quadlet_verify_vikunja_env_content"
+          - "'VIKUNJA_DATABASE_PASSWORD_FILE=/run/secrets/vikunja_db_password' in __quadlet_verify_vikunja_env_content.splitlines()"
+          - "'VIKUNJA_SERVICE_SECRET_FILE=/run/secrets/vikunja_service_secret' in __quadlet_verify_vikunja_env_content.splitlines()"
+          - "'VIKUNJA_SERVICE_NAME=Grüße' in __quadlet_verify_vikunja_env_content.splitlines()"
 
     - name: "QUADLET | Assert Secret references are rendered in Quadlets"
       ansible.builtin.assert:

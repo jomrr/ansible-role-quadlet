@@ -166,7 +166,8 @@ argument_specs:
                 type: dict
                 required: false
                 default: {}
-                description: Non-secret environment values rendered into the EnvironmentFile.
+                description: Single-line non-secret environment values rendered literally
+                  into the EnvironmentFile.
               environment_file:
                 type: path
                 required: true

@@ -1,0 +1,34 @@
+---
+# role: quadlet
+# file: molecule/resources/playbooks/prepare.yml
+
+- name: "Molecule | prepare | quadlet"
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    # Keep subordinate IDs inside the outer rootless container's mapping.
+    # Create the /etc override when vendor defaults live under /usr/etc.
+    # These test-only ranges support secrets, not arbitrary container images.
+    # Shadow bug #1255 skips sub-IDs for explicit system UIDs on older versions:
+    # https://github.com/shadow-maint/shadow/issues/1255
+    # Fixed versions honor --add-subids-for-system and need usable nested ranges.
+    - name: "QUADLET | Configure subordinate IDs for nested Podman"
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        create: true
+        owner: root
+        group: root
+        mode: "0644"
+        regexp: '^\s*{{ __quadlet_login_def.key }}\s+'
+        line: "{{ __quadlet_login_def.key }} {{ __quadlet_login_def.value }}"
+      loop:
+        - { key: SUB_UID_MIN, value: 60001 }
+        - { key: SUB_UID_MAX, value: 65535 }
+        - { key: SUB_UID_COUNT, value: 1024 }
+        - { key: SUB_GID_MIN, value: 60001 }
+        - { key: SUB_GID_MAX, value: 65535 }
+        - { key: SUB_GID_COUNT, value: 1024 }
+      loop_control:
+        loop_var: __quadlet_login_def
+        label: "{{ __quadlet_login_def.key }}"

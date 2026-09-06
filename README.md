@@ -131,7 +131,7 @@ another target. Disabled items cannot set `install_options.WantedBy`.
 - `quadlet_autoupdate` supplies the default `AutoUpdate=` policy for every container. A container can override it with `auto_update: registry` or `auto_update: local`. Registry updates require fully-qualified image references. `quadlet_autoupdate_timer` controls the user timer.
 - `type: mount` renders `Secret=<name>` or `Secret=<name>,target=<target>` and lets Podman mount the secret as a file.
 - `type: env` renders `Secret=<name>,type=env,target=<ENV_NAME>` and exposes the secret through the container environment.
-- EnvironmentFile entries render ordinary `KEY="value"` settings and must not contain passwords, tokens, API keys, or private material.
+- EnvironmentFile entries use Podman's `KEY=value` format without added quotes or escaping. Values must be single-line and contain no NUL characters. Passwords, tokens, API keys, and private material belong in Podman secrets.
 - Every container must set an explicit `environment_file` path.
 - Use `value: "{{ vault_secret_name }}"` with encrypted inventory or Ansible Vault when the role should create a Podman secret.
 - `value_file` is a remote Managed Host path and should only be used when another trusted process provisions that root-readable file before this role runs.

@@ -43,6 +43,17 @@
     fail_msg: >-
       Container option maps cannot redefine a single-value key managed directly by the role.
 
+- name: "QUADLET | Validate environment file values"
+  ansible.builtin.assert:
+    that:
+      - __quadlet_environment.value | string is not search('[\r\n\x00]')
+    quiet: true
+    fail_msg: EnvironmentFile values must not contain line breaks or NUL characters.
+  loop: "{{ __quadlet_container.environment | default({}) | dict2items }}"
+  loop_control:
+    loop_var: __quadlet_environment
+    label: "{{ __quadlet_environment.key }}"
+
 - name: "QUADLET | Validate secret separation from container environment"
   ansible.builtin.assert:
     that:
