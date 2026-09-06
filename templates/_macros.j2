@@ -1,0 +1,11 @@
+{% macro render_options(options) %}
+{% for option in options | dict2items %}
+{% if option.value is sequence and option.value is not string %}
+{% for value in option.value %}
+{{ option.key }}={{ value }}
+{% endfor %}
+{% else %}
+{{ option.key }}={{ option.value }}
+{% endif %}
+{% endfor %}
+{% endmacro %}

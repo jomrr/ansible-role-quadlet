@@ -1,17 +1,9 @@
+{% from '_macros.j2' import render_options %}
 # Managed by Ansible.
 
 [Unit]
 Description=Rootless Podman container {{ __quadlet_container.name }}
-{% for option in __quadlet_container.unit_options | default({}) | dict2items %}
-{% if option.value is sequence and option.value is not string %}
-{% for value in option.value %}
-{{ option.key }}={{ value }}
-{% endfor %}
-{% else %}
-{{ option.key }}={{ option.value }}
-{% endif %}
-{% endfor %}
-
+{{ render_options(__quadlet_container.unit_options | default({})) }}
 [Container]
 Image={{ __quadlet_container.image }}
 ContainerName={{ __quadlet_container.container_name | default(__quadlet_container.name) }}
@@ -21,7 +13,7 @@ Pod={{ quadlet_container_pod if quadlet_container_pod | regex_search('\.pod$') e
 StartWithPod={{ (__quadlet_container.start_with_pod | default(true) | bool) | ternary('true', 'false') }}
 {% endif %}
 EnvironmentFile={{ __quadlet_container.environment_file }}
-{% for secret in __quadlet_container.secrets | default([]) %}
+{% for secret in __quadlet_container.secrets %}
 {% set secret_type = secret.type | default('mount') %}
 {% if secret_type == 'env' %}
 Secret={{ secret.name }},type=env,target={{ secret.env_target }}
@@ -54,38 +46,12 @@ Tmpfs={{ tmpfs }}
 Exec={{ __quadlet_container.exec }}
 {% endif %}
 AutoUpdate={{ __quadlet_container.auto_update | default(quadlet_autoupdate) }}
-{% for option in __quadlet_container.container_options | default({}) | dict2items %}
-{% if option.value is sequence and option.value is not string %}
-{% for value in option.value %}
-{{ option.key }}={{ value }}
-{% endfor %}
-{% else %}
-{{ option.key }}={{ option.value }}
-{% endif %}
-{% endfor %}
-
+{{ render_options(__quadlet_container.container_options | default({})) }}
 [Service]
 Restart={{ __quadlet_container.restart_policy | default('always') }}
-{% for option in __quadlet_container.service_options | default({}) | dict2items %}
-{% if option.value is sequence and option.value is not string %}
-{% for value in option.value %}
-{{ option.key }}={{ value }}
-{% endfor %}
-{% else %}
-{{ option.key }}={{ option.value }}
-{% endif %}
-{% endfor %}
-
+{{ render_options(__quadlet_container.service_options | default({})) }}
 [Install]
 {% if __quadlet_container.enabled | default(true) | bool and 'WantedBy' not in (__quadlet_container.install_options | default({})) %}
 WantedBy=default.target
 {% endif %}
-{% for option in __quadlet_container.install_options | default({}) | dict2items %}
-{% if option.value is sequence and option.value is not string %}
-{% for value in option.value %}
-{{ option.key }}={{ value }}
-{% endfor %}
-{% else %}
-{{ option.key }}={{ option.value }}
-{% endif %}
-{% endfor %}
+{{ render_options(__quadlet_container.install_options | default({})) -}}

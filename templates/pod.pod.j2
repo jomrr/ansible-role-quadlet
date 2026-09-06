@@ -1,17 +1,9 @@
+{% from '_macros.j2' import render_options %}
 # Managed by Ansible.
 
 [Unit]
 Description=Rootless Podman pod {{ __quadlet_pod.name }}
-{% for option in __quadlet_pod.unit_options | default({}) | dict2items %}
-{% if option.value is sequence and option.value is not string %}
-{% for value in option.value %}
-{{ option.key }}={{ value }}
-{% endfor %}
-{% else %}
-{{ option.key }}={{ option.value }}
-{% endif %}
-{% endfor %}
-
+{{ render_options(__quadlet_pod.unit_options | default({})) }}
 [Pod]
 {% if __quadlet_pod.service_name is defined %}
 ServiceName={{ __quadlet_pod.service_name }}
@@ -25,38 +17,12 @@ PublishPort={{ port }}
 {% for volume in __quadlet_pod.volumes | default([]) %}
 Volume={{ volume }}
 {% endfor %}
-{% for option in __quadlet_pod.pod_options | default({}) | dict2items %}
-{% if option.value is sequence and option.value is not string %}
-{% for value in option.value %}
-{{ option.key }}={{ value }}
-{% endfor %}
-{% else %}
-{{ option.key }}={{ option.value }}
-{% endif %}
-{% endfor %}
-
+{{ render_options(__quadlet_pod.pod_options | default({})) }}
 [Service]
 Restart={{ __quadlet_pod.restart_policy | default('always') }}
-{% for option in __quadlet_pod.service_options | default({}) | dict2items %}
-{% if option.value is sequence and option.value is not string %}
-{% for value in option.value %}
-{{ option.key }}={{ value }}
-{% endfor %}
-{% else %}
-{{ option.key }}={{ option.value }}
-{% endif %}
-{% endfor %}
-
+{{ render_options(__quadlet_pod.service_options | default({})) }}
 [Install]
 {% if __quadlet_pod.enabled | default(true) | bool and 'WantedBy' not in (__quadlet_pod.install_options | default({})) %}
 WantedBy=default.target
 {% endif %}
-{% for option in __quadlet_pod.install_options | default({}) | dict2items %}
-{% if option.value is sequence and option.value is not string %}
-{% for value in option.value %}
-{{ option.key }}={{ value }}
-{% endfor %}
-{% else %}
-{{ option.key }}={{ option.value }}
-{% endif %}
-{% endfor %}
+{{ render_options(__quadlet_pod.install_options | default({})) -}}

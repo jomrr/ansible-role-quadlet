@@ -141,7 +141,7 @@ another target. Disabled items cannot set `install_options.WantedBy`.
 - EnvironmentFile entries use Podman's `KEY=value` format without added quotes or escaping. Values must be single-line and contain no NUL characters. Passwords, tokens, API keys, and private material belong in Podman secrets.
 - Every container must set an explicit `environment_file` path.
 - Use `value: "{{ vault_secret_name }}"` with encrypted inventory or Ansible Vault when the role should create a Podman secret.
-- `value_file` is a remote Managed Host path and should only be used when another trusted process provisions that root-readable file before this role runs.
+- `value_file` is a path on the managed host. Another trusted process must provision the file before this role runs. The service user must be able to read the file and traverse every parent directory, because the secret module runs as that user. Root readability alone is insufficient. The role does not manage permissions on the source file or its parent directories.
 - Every secret requires exactly one source: `value` or `value_file`.
 - The role does not parse or modify `/etc/login.defs`; subordinate ID count and ranges come from the target system's shadow-utils defaults.
 - `useradd` allocates subordinate IDs only for newly created users. Existing service users must already have suitable rootless Podman mappings.

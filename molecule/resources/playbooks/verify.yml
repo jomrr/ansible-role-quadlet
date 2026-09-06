@@ -86,60 +86,57 @@
 
     - name: "QUADLET | Read generated files"
       ansible.builtin.slurp:
-        src: "{{ item }}"
+        src: "{{ __quadlet_file.path }}"
       register: __quadlet_verify_files
       loop:
-        - "{{ __quadlet_verify_vikunja_pod }}"
-        - "{{ __quadlet_verify_vikunja_quadlet }}"
-        - "{{ __quadlet_verify_vaultwarden_quadlet }}"
-        - "{{ __quadlet_verify_vikunja_env }}"
-        - "{{ __quadlet_verify_vaultwarden_env }}"
+        - path: "{{ __quadlet_verify_vikunja_pod }}"
+          lines:
+            - PublishPort=127.0.0.1:3456:3456
+            - Network=pasta
+            - PodName=molecule-vikunja-pod
+        - path: "{{ __quadlet_verify_vikunja_quadlet }}"
+          lines:
+            - Secret=vikunja_db_password
+            - Secret=vikunja_service_secret
+            - Pod=vikunja.pod
+            - StartWithPod=true
+        - path: "{{ __quadlet_verify_vaultwarden_quadlet }}"
+          lines:
+            - Secret=vaultwarden_admin_token,type=env,target=ADMIN_TOKEN
+            - "{{ __quadlet_verify_vaultwarden_exec_start_pre }}"
+            - Restart=on-failure
+            - RestartSec=10s
+            - TimeoutStartSec=300
+            - Exec=serve
+            - AutoUpdate=local
+            - HealthCmd=/bin/true
+            - WantedBy=default.target
+        - path: "{{ __quadlet_verify_vikunja_env }}"
+          lines:
+            - VIKUNJA_DATABASE_PASSWORD_FILE=/run/secrets/vikunja_db_password
+            - VIKUNJA_SERVICE_SECRET_FILE=/run/secrets/vikunja_service_secret
+            - VIKUNJA_SERVICE_NAME=Grüße
+        - path: "{{ __quadlet_verify_vaultwarden_env }}"
+          lines: []
+      loop_control:
+        loop_var: __quadlet_file
+        label: "{{ __quadlet_file.path }}"
 
-    - name: "QUADLET | Set generated file content facts"
-      ansible.builtin.set_fact:
-        __quadlet_verify_vikunja_pod_content: "{{ __quadlet_verify_files.results[0].content | b64decode }}"
-        __quadlet_verify_vikunja_quadlet_content: "{{ __quadlet_verify_files.results[1].content | b64decode }}"
-        __quadlet_verify_vaultwarden_quadlet_content: "{{ __quadlet_verify_files.results[2].content | b64decode }}"
-        __quadlet_verify_vikunja_env_content: "{{ __quadlet_verify_files.results[3].content | b64decode }}"
-        __quadlet_verify_vaultwarden_env_content: "{{ __quadlet_verify_files.results[4].content | b64decode }}"
-
-    - name: "QUADLET | Assert EnvironmentFiles do not contain secret values"
+    - name: "QUADLET | Verify generated file contents"
       ansible.builtin.assert:
         that:
-          - "'molecule-db-secret' not in __quadlet_verify_vikunja_env_content"
-          - "'molecule-service-secret' not in __quadlet_verify_vikunja_env_content"
-          - "'molecule-admin-token' not in __quadlet_verify_vaultwarden_env_content"
-          - "'VIKUNJA_DATABASE_PASSWORD_FILE=/run/secrets/vikunja_db_password' in __quadlet_verify_vikunja_env_content.splitlines()"
-          - "'VIKUNJA_SERVICE_SECRET_FILE=/run/secrets/vikunja_service_secret' in __quadlet_verify_vikunja_env_content.splitlines()"
-          - "'VIKUNJA_SERVICE_NAME=Grüße' in __quadlet_verify_vikunja_env_content.splitlines()"
-
-    - name: "QUADLET | Assert Secret references are rendered in Quadlets"
-      ansible.builtin.assert:
-        that:
-          - "'Secret=vikunja_db_password' in __quadlet_verify_vikunja_quadlet_content"
-          - "'Secret=vikunja_service_secret' in __quadlet_verify_vikunja_quadlet_content"
-          - "'Secret=vaultwarden_admin_token,type=env,target=ADMIN_TOKEN' in __quadlet_verify_vaultwarden_quadlet_content"
-
-    - name: "QUADLET | Assert Pod references are rendered in Quadlets"
-      ansible.builtin.assert:
-        that:
-          - "'Pod=vikunja.pod' in __quadlet_verify_vikunja_quadlet_content"
-          - "'StartWithPod=true' in __quadlet_verify_vikunja_quadlet_content"
-          - "'PublishPort=127.0.0.1:3456:3456' in __quadlet_verify_vikunja_pod_content"
-          - "'Network=pasta' in __quadlet_verify_vikunja_pod_content"
-          - "'PodName=molecule-vikunja-pod' in __quadlet_verify_vikunja_pod_content"
-
-    - name: "QUADLET | Assert extension options are rendered in Quadlets"
-      ansible.builtin.assert:
-        that:
-          - __quadlet_verify_vaultwarden_exec_start_pre in __quadlet_verify_vaultwarden_quadlet_content
-          - "'Restart=on-failure' in __quadlet_verify_vaultwarden_quadlet_content"
-          - "'RestartSec=10s' in __quadlet_verify_vaultwarden_quadlet_content"
-          - "'TimeoutStartSec=300' in __quadlet_verify_vaultwarden_quadlet_content"
-          - "'Exec=serve' in __quadlet_verify_vaultwarden_quadlet_content"
-          - "'AutoUpdate=local' in __quadlet_verify_vaultwarden_quadlet_content"
-          - "'HealthCmd=/bin/true' in __quadlet_verify_vaultwarden_quadlet_content"
-          - "'WantedBy=default.target' in __quadlet_verify_vaultwarden_quadlet_content"
+          - >-
+            __quadlet_result.__quadlet_file.lines
+            | difference((__quadlet_result.content | b64decode).splitlines())
+            | length == 0
+          - "'molecule-db-secret' not in (__quadlet_result.content | b64decode)"
+          - "'molecule-service-secret' not in (__quadlet_result.content | b64decode)"
+          - "'molecule-admin-token' not in (__quadlet_result.content | b64decode)"
+        fail_msg: "Unexpected content in {{ __quadlet_result.source }}"
+      loop: "{{ __quadlet_verify_files.results }}"
+      loop_control:
+        loop_var: __quadlet_result
+        label: "{{ __quadlet_result.source }}"
 
     - name: "QUADLET | Stat service user linger markers"
       ansible.builtin.stat:
