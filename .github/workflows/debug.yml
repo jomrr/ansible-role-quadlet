@@ -28,6 +28,21 @@ jobs:
       QUADLET_DEBUG_DIR: /tmp/quadlet-almalinux-debug
 
     steps:
+      - name: Disable host AppArmor restrictions for Molecule
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo sysctl -w \
+            kernel.apparmor_restrict_unprivileged_userns=0 \
+            kernel.apparmor_restrict_unprivileged_unconfined=0
+
+          sudo systemctl mask --now apparmor.service
+
+          sudo aa-teardown || {
+            remaining_profiles="$(sudo cat /sys/kernel/security/apparmor/profiles)"
+            test -z "$remaining_profiles"
+          }
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
