@@ -96,6 +96,7 @@
             - PodName=molecule-vikunja-pod
         - path: "{{ __quadlet_verify_vikunja_quadlet }}"
           lines:
+            - AutoUpdate=disabled
             - Secret=vikunja_db_password
             - Secret=vikunja_service_secret
             - Pod=vikunja.pod
@@ -111,6 +112,9 @@
             - AutoUpdate=local
             - HealthCmd=/bin/true
             - WantedBy=default.target
+        - path: /etc/containers/systemd/users/901/vaultwarden-disabled.container
+          lines:
+            - AutoUpdate=disabled
         - path: "{{ __quadlet_verify_vikunja_env }}"
           lines:
             - VIKUNJA_DATABASE_PASSWORD_FILE=/run/secrets/vikunja_db_password
@@ -187,6 +191,30 @@
       loop_control:
         label: "{{ item.item }}"
 
+    - name: "QUADLET | Read auto-update timer state"
+      become: true
+      become_user: quadlet_vikunja
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - --user
+          - show
+          - podman-auto-update.timer
+          - --property=ActiveState,UnitFileState
+      environment:
+        XDG_RUNTIME_DIR: /run/user/901
+        DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/901/bus
+      changed_when: false
+      register: __quadlet_autoupdate_timer_status
+
+    - name: "QUADLET | Assert auto-update timer is stopped and disabled"
+      ansible.builtin.assert:
+        that:
+          - "'ActiveState=inactive' in __quadlet_autoupdate_timer_status.stdout_lines"
+          - "'UnitFileState=disabled' in __quadlet_autoupdate_timer_status.stdout_lines"
+        quiet: true
+        fail_msg: "quadlet_autoupdate_timer=false must stop and disable the user timer."
+
     - name: "QUADLET | Verify generated user units"
       become: true
       become_user: "{{ item.user }}"
@@ -204,5 +232,6 @@
             - vikunja-pod.service
             - vikunja.service
             - vaultwarden.service
+            - vaultwarden-disabled.service
       loop_control:
         label: "{{ item.user }}"

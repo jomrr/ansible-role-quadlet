@@ -3,11 +3,12 @@
 # file: defaults/main.yml
 
 quadlet_autoupdate: registry
-# Podman auto-update policy rendered for every container.
+# Default Podman auto-update policy; container auto_update overrides take precedence.
 # quadlet_autoupdate: local
+# quadlet_autoupdate: disabled
 
 quadlet_autoupdate_timer: true
-# Whether the Podman auto-update timer is enabled for service users.
+# Whether the user timer is enabled and running; independent of container policies.
 # quadlet_autoupdate_timer: false
 
 quadlet_base_dir: /srv/containers
@@ -61,6 +62,7 @@ quadlet_users: []
 #     containers:
 #       - name: vikunja-db
 #         image: docker.io/library/postgres:16-alpine
+#         auto_update: disabled
 #         container_name: vikunja-db
 #         pod: vikunja
 #         environment_file: /srv/containers/vikunja-db/env/vikunja-db.env

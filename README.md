@@ -1,6 +1,10 @@
 # Ansible Role: quadlet
 
-![GitHub](https://img.shields.io/github/license/jomrr/ansible-role-quadlet) ![GitHub last commit](https://img.shields.io/github/last-commit/jomrr/ansible-role-quadlet) ![GitHub issues](https://img.shields.io/github/issues-raw/jomrr/ansible-role-quadlet) [![dev](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-quadlet/dev.yml?branch=dev&event=push&label=dev)](https://github.com/jomrr/ansible-role-quadlet/actions/workflows/dev.yml?query=branch%3Adev) [![main](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-quadlet/main.yml?branch=main&event=push&label=main)](https://github.com/jomrr/ansible-role-quadlet/actions/workflows/main.yml?query=branch%3Amain)
+![GitHub](https://img.shields.io/github/license/jomrr/ansible-role-quadlet)
+![GitHub last commit](https://img.shields.io/github/last-commit/jomrr/ansible-role-quadlet)
+![GitHub issues](https://img.shields.io/github/issues-raw/jomrr/ansible-role-quadlet)
+[![dev](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-quadlet/dev.yml?branch=dev&event=push&label=dev)](https://github.com/jomrr/ansible-role-quadlet/actions/workflows/dev.yml?query=branch%3Adev)
+[![main](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-quadlet/main.yml?branch=main&event=push&label=main)](https://github.com/jomrr/ansible-role-quadlet/actions/workflows/main.yml?query=branch%3Amain)
 
 Ansible role for deploying rootless Podman Quadlet application services.
 
@@ -21,16 +25,20 @@ Podman context.
 
 - Podman package installation
 - Dedicated Unix service users and matching primary groups
-- Subordinate UID/GID allocation for newly created service users through system shadow-utils defaults
-- Root-owned user Quadlet directories below `/etc/containers/systemd/users/<UID>/`
+- Subordinate UID/GID allocation for newly created service users through system
+  shadow-utils defaults
+- Root-owned user Quadlet directories below
+  `/etc/containers/systemd/users/<UID>/`
 - Root-owned Quadlet `.pod` files for rootless Podman pods
 - Root-owned Quadlet `.container` files for rootless user services
-- Non-secret EnvironmentFiles at the explicitly configured `environment_file` paths
+- Non-secret EnvironmentFiles at the explicitly configured `environment_file`
+  paths
 - Default application data directories below `quadlet_base_dir/<container>/data`
 - Rootless Podman secrets from a supplied `value` or `value_file`
 - Systemd linger for every managed service user
 - Generated user service installation and runtime state
-- Configured rootless Podman auto-update timer state for every managed service user
+- Configured rootless Podman auto-update timer state for every managed service
+  user
 
 ### Not Managed
 
@@ -47,8 +55,10 @@ Podman context.
 ## Requirements
 
 - Target hosts need Podman with Quadlet support and systemd user services.
-- Target hosts need a shadow-utils `useradd` implementation supporting `--add-subids-for-system`.
-- Rootless Podman secret creation requires a working rootless Podman context for each service user.
+- Target hosts need a shadow-utils `useradd` implementation supporting
+  `--add-subids-for-system`.
+- Rootless Podman secret creation requires a working rootless Podman context for
+  each service user.
 
 ## Dependencies
 
@@ -61,19 +71,61 @@ collections:
 
 ## Role Variables
 
-The following variables are part of the public role interface.
+### `quadlet_base_dir`
 
-| Name | Type | Required | Default | Description |
-| ---- | ---- | -------- | ------- | ----------- |
-| `quadlet_base_dir` | `path` | `false` | `/srv/containers` | Base directory for default container data paths. |
-| `quadlet_autoupdate` | `str` | `false` | `registry` | Podman auto-update policy rendered for every container. |
-| `quadlet_autoupdate_timer` | `bool` | `false` | `True` | Whether the Podman auto-update timer is enabled for service users. |
-| `quadlet_users` | `list` | `false` | [] | Service users and rootless Podman Quadlets managed by this role. |
+Type: `path`. Required: `false`.
+
+Base directory for default container data paths.
+
+Default:
+
+```yaml
+quadlet_base_dir: /srv/containers
+```
+
+### `quadlet_autoupdate`
+
+Type: `str`. Required: `false`.
+
+Default Podman auto-update policy. `disabled` excludes containers from
+auto-update unless overridden.
+
+Default:
+
+```yaml
+quadlet_autoupdate: registry
+```
+
+### `quadlet_autoupdate_timer`
+
+Type: `bool`. Required: `false`.
+
+Whether the Podman auto-update timer is enabled for service users.
+
+Default:
+
+```yaml
+quadlet_autoupdate_timer: true
+```
+
+### `quadlet_users`
+
+Type: `list`. Required: `false`.
+
+Service users and rootless Podman Quadlets managed by this role.
+
+Default:
+
+```yaml
+quadlet_users: []
+```
 
 ## Managed Files
 
-- `/etc/containers/systemd/users/<UID>/<container>.container` root-owned rootless user Quadlet
-- `/etc/containers/systemd/users/<UID>/<pod>.pod` root-owned rootless pod Quadlet
+- `/etc/containers/systemd/users/<UID>/<container>.container` root-owned
+  rootless user Quadlet
+- `/etc/containers/systemd/users/<UID>/<pod>.pod` root-owned rootless pod
+  Quadlet
 - `<environment_file>` explicitly configured non-secret EnvironmentFile
 - `/srv/containers/<container>/data` default application data directory
 
@@ -107,46 +159,106 @@ another target. Disabled items cannot set `install_options.WantedBy`.
 
 ## Security Notes
 
-- Rootless Podman reduces runtime privileges by running application containers in a non-root user namespace owned by the dedicated service user.
-- Service users are created with `useradd --system --add-subids-for-system`, so subordinate UID/GID mappings are allocated by the target system's shadow-utils defaults.
-- Quadlet files are written below `/etc/containers/systemd/users/<UID>/` with owner `root`, group `root`, and mode `0644`, so the service user cannot modify the unit definition.
-- The role does not use `/etc/containers/systemd/` for managed containers; that path is reserved for rootful or system-wide Quadlets.
-- EnvironmentFiles are only for non-secret application configuration and are written owner `root`, group service-user, mode `0640`.
-- Secret values are never rendered into Quadlet files or EnvironmentFiles by the role.
-- Podman secrets with `type: mount` expose a secret as a file below `/run/secrets/` and are preferred over environment-variable secrets.
-- Mounted Podman secrets reduce accidental leak surfaces compared with ENV secrets, but they do not protect against a full compromise of the container process.
-- Podman secrets with `type: env` are supported only as an explicit fallback for applications that cannot consume file-based secrets.
-- Podman secrets are updated only when their supplied `value` or `value_file` content differs.
-- Docker Compose-specific escaping rules for `$` are not applied to EnvironmentFiles or Quadlet templates.
+- Rootless Podman reduces runtime privileges by running application containers
+  in a non-root user namespace owned by the dedicated service user.
+- Service users are created with `useradd --system --add-subids-for-system`, so
+  subordinate UID/GID mappings are allocated by the target system's shadow-utils
+  defaults.
+- Quadlet files are written below `/etc/containers/systemd/users/<UID>/` with
+  owner `root`, group `root`, and mode `0644`, so the service user cannot modify
+  the unit definition.
+- The role does not use `/etc/containers/systemd/` for managed containers; that
+  path is reserved for rootful or system-wide Quadlets.
+- EnvironmentFiles are only for non-secret application configuration and are
+  written owner `root`, group service-user, mode `0640`.
+- Secret values are never rendered into Quadlet files or EnvironmentFiles by the
+  role.
+- Podman secrets with `type: mount` expose a secret as a file below
+  `/run/secrets/` and are preferred over environment-variable secrets.
+- Mounted Podman secrets reduce accidental leak surfaces compared with ENV
+  secrets, but they do not protect against a full compromise of the container
+  process.
+- Podman secrets with `type: env` are supported only as an explicit fallback for
+  applications that cannot consume file-based secrets.
+- Podman secrets are updated only when their supplied `value` or `value_file`
+  content differs.
+- Docker Compose-specific escaping rules for `$` are not applied to
+  EnvironmentFiles or Quadlet templates.
 
 ## Operational Notes
 
-- Use file-based application settings such as `*_FILE=/run/secrets/<secret>` whenever the application supports them.
+- Use file-based application settings such as `*_FILE=/run/secrets/<secret>`
+  whenever the application supports them.
 - Declare shared pod-level port publishing, networks, and volumes under `pods`.
-- Set a container `pod` value to a pod unit base name such as `app` or to the explicit Quadlet unit name `app.pod`; both render `Pod=app.pod`.
-- Containers with `pod` set render `StartWithPod=true` by default, so starting the pod service starts the associated containers.
-- When a pod owns the lifecycle, set pod `enabled` and `state` on the pod and use container `enabled: false` with `state: created` for file-only container units.
-- Use `host.containers.internal` from a container to reach services on the container host.
-- Use `127.0.0.1` for a database only when the database runs in the same container or in another container joined to the same pod network namespace.
-- Omit `uid` unless a fixed service-user UID is required; `useradd --system` otherwise allocates a system UID from the target host defaults.
-- Use `service_options.ExecStartPre` for dependency checks such as `pg_isready` before Podman starts the container service.
-- `restart_policy` renders `Restart=`; additional service settings such as `RestartSec` belong in `service_options`.
-- `ports`, `volumes`, `networks`, and `tmpfs` contain native Quadlet values rendered without Compose-style conversion.
-- `unit_options`, `service_options`, and `install_options` extend their named systemd sections. `container_options` and `pod_options` extend the matching Quadlet section. A list value repeats the key once per item.
-- Options rendered directly by the role cannot be overridden through an options map. Multi-value keys such as `Secret`, `Volume`, `PublishPort`, `Network`, and `DropCapability` may be added through a map.
+- Set a container `pod` value to a pod unit base name such as `app` or to the
+  explicit Quadlet unit name `app.pod`; both render `Pod=app.pod`.
+- Containers with `pod` set render `StartWithPod=true` by default, so starting
+  the pod service starts the associated containers.
+- When a pod owns the lifecycle, set pod `enabled` and `state` on the pod and
+  use container `enabled: false` with `state: created` for file-only container
+  units.
+- Use `host.containers.internal` from a container to reach services on the
+  container host.
+- Use `127.0.0.1` for a database only when the database runs in the same
+  container or in another container joined to the same pod network namespace.
+- Omit `uid` unless a fixed service-user UID is required; `useradd --system`
+  otherwise allocates a system UID from the target host defaults.
+- Use `service_options.ExecStartPre` for dependency checks such as `pg_isready`
+  before Podman starts the container service.
+- `restart_policy` renders `Restart=`; additional service settings such as
+  `RestartSec` belong in `service_options`.
+- `ports`, `volumes`, `networks`, and `tmpfs` contain native Quadlet values
+  rendered without Compose-style conversion.
+- `unit_options`, `service_options`, and `install_options` extend their named
+  systemd sections. `container_options` and `pod_options` extend the matching
+  Quadlet section. A list value repeats the key once per item.
+- Options rendered directly by the role cannot be overridden through an options
+  map. Multi-value keys such as `Secret`, `Volume`, `PublishPort`, `Network`,
+  and `DropCapability` may be added through a map.
 - `exec` renders `Exec=` and supplies arguments after the image entrypoint.
-- `quadlet_autoupdate` supplies the default `AutoUpdate=` policy for every container. A container can override it with `auto_update: registry` or `auto_update: local`. Registry updates require fully-qualified image references. `quadlet_autoupdate_timer` controls the user timer.
-- `type: mount` renders `Secret=<name>` or `Secret=<name>,target=<target>` and lets Podman mount the secret as a file.
-- `type: env` renders `Secret=<name>,type=env,target=<ENV_NAME>` and exposes the secret through the container environment.
-- EnvironmentFile entries use Podman's `KEY=value` format without added quotes or escaping. Values must be single-line and contain no NUL characters. Passwords, tokens, API keys, and private material belong in Podman secrets.
+- `quadlet_autoupdate` supplies the default `AutoUpdate=` policy for every
+  container. Both it and the per-container `auto_update` override accept
+  `registry`, `local`, or `disabled`. The default remains `registry`. Registry
+  updates require fully-qualified image references; `local` still updates
+  containers when their locally stored image changes.
+- Set `quadlet_autoupdate: disabled` to disable auto-update by default, or
+  `auto_update: disabled` to exclude one container. Explicit container overrides
+  take precedence, including `registry` or `local` when the global policy is
+  `disabled`.
+- `quadlet_autoupdate_timer: false` stops and disables each managed user's
+  auto-update timer without changing container policies. Manual or external
+  auto-update invocations can still update containers with an active policy. To
+  disable both the default policy and the timer, set `quadlet_autoupdate:
+  disabled` and `quadlet_autoupdate_timer: false`.
+- A changed auto-update policy takes effect on an existing container when its
+  service recreates it. The role restarts services with `state: started` after
+  configuration changes. `state: created` only renders files; a reload alone
+  does not replace the running container's policy label. For pod-owned
+  containers, recreation follows the owning pod's service lifecycle.
+- `type: mount` renders `Secret=<name>` or `Secret=<name>,target=<target>` and
+  lets Podman mount the secret as a file.
+- `type: env` renders `Secret=<name>,type=env,target=<ENV_NAME>` and exposes the
+  secret through the container environment.
+- EnvironmentFile entries use Podman's `KEY=value` format without added quotes
+  or escaping. Values must be single-line and contain no NUL characters.
+  Passwords, tokens, API keys, and private material belong in Podman secrets.
 - Every container must set an explicit `environment_file` path.
-- Use `value: "{{ vault_secret_name }}"` with encrypted inventory or Ansible Vault when the role should create a Podman secret.
-- `value_file` is a path on the managed host. Another trusted process must provision the file before this role runs. The service user must be able to read the file and traverse every parent directory, because the secret module runs as that user. Root readability alone is insufficient. The role does not manage permissions on the source file or its parent directories.
+- Use `value: "{{ vault_secret_name }}"` with encrypted inventory or Ansible
+  Vault when the role should create a Podman secret.
+- `value_file` is a path on the managed host. Another trusted process must
+  provision the file before this role runs. The service user must be able to
+  read the file and traverse every parent directory, because the secret module
+  runs as that user. Root readability alone is insufficient. The role does not
+  manage permissions on the source file or its parent directories.
 - Every secret requires exactly one source: `value` or `value_file`.
-- The role does not parse or modify `/etc/login.defs`; subordinate ID count and ranges come from the target system's shadow-utils defaults.
-- `useradd` allocates subordinate IDs only for newly created users. Existing service users must already have suitable rootless Podman mappings.
-- Set `state: created` for file-only rendering without runtime service management.
-- Set `enabled: false` to omit the default `WantedBy=default.target` installation target.
+- The role does not parse or modify `/etc/login.defs`; subordinate ID count and
+  ranges come from the target system's shadow-utils defaults.
+- `useradd` allocates subordinate IDs only for newly created users. Existing
+  service users must already have suitable rootless Podman mappings.
+- Set `state: created` for file-only rendering without runtime service
+  management.
+- Set `enabled: false` to omit the default `WantedBy=default.target`
+  installation target.
 
 ## Supported Platforms
 
@@ -202,10 +314,13 @@ references.
                 restart_policy: on-failure
                 service_options:
                   ExecStartPre: >-
-                    /bin/bash -c 'until pg_isready -h POSTGRES_PUBLIC_IP -p 5432 -U vikunja; do sleep 10; done;'
+                    /bin/bash -c 'until pg_isready
+                    -h POSTGRES_PUBLIC_IP -p 5432 -U vikunja;
+                    do sleep 10; done;'
                   RestartSec: 10s
                   TimeoutStartSec: "300"
 ```
+
 ### Vikunja pod with PostgreSQL container
 
 PostgreSQL runs in a second container in the same Podman pod. Containers
@@ -231,6 +346,7 @@ database through `127.0.0.1`.
             containers:
               - name: vikunja-db
                 image: docker.io/library/postgres:16-alpine
+                auto_update: disabled
                 container_name: vikunja-db
                 pod: vikunja
                 environment_file: /srv/containers/vikunja-db/env/vikunja-db.env
@@ -267,6 +383,7 @@ database through `127.0.0.1`.
                 enabled: false
                 state: created
 ```
+
 ### Vaultwarden with explicit environment secret fallback
 
 Vaultwarden consumes `ADMIN_TOKEN` as an environment variable when no
@@ -301,6 +418,7 @@ secret and is not written to the EnvironmentFile or Quadlet.
                 ports:
                   - 127.0.0.1:8080:80
 ```
+
 ### ntfy with entrypoint arguments and auto-update
 
 The container receives `serve` after its image entrypoint. Registry
@@ -333,7 +451,9 @@ command uses `container_options`.
                 ports:
                   - 127.0.0.1:8081:80
                 container_options:
-                  HealthCmd: wget -q --tries=1 http://127.0.0.1:80/v1/health -O -
+                  HealthCmd: >-
+                    wget -q --tries=1
+                    http://127.0.0.1:80/v1/health -O -
 ```
 
 ## References

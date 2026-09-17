@@ -4,9 +4,15 @@
 
 - name: "Molecule | prepare | quadlet"
   hosts: all
-  become: true
-  gather_facts: false
+  gather_facts: true
   tasks:
+    - name: "QUADLET | Refresh APT metadata from the test image"
+      become: true
+      become_user: root
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_facts.os_family == 'Debian'
+
     # Keep subordinate IDs inside the outer rootless container's mapping.
     # Create the /etc override when vendor defaults live under /usr/etc.
     # These test-only ranges support secrets, not arbitrary container images.
@@ -14,6 +20,8 @@
     # https://github.com/shadow-maint/shadow/issues/1255
     # Fixed versions honor --add-subids-for-system and need usable nested ranges.
     - name: "QUADLET | Configure subordinate IDs for nested Podman"
+      become: true
+      become_user: root
       ansible.builtin.lineinfile:
         path: /etc/login.defs
         create: true

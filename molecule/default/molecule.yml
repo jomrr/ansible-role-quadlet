@@ -26,6 +26,8 @@ provisioner:
   inventory:
     group_vars:
       all:
+        quadlet_autoupdate: "disabled"
+        quadlet_autoupdate_timer: false
         quadlet_users:
           - name: "quadlet_vikunja"
             uid: 901
@@ -86,6 +88,13 @@ provisioner:
                   TimeoutStartSec: "300"
                 install_options:
                   WantedBy: "default.target"
+                state: "created"
+              - name: "vaultwarden-disabled"
+                image: "localhost/vaultwarden:test"
+                environment_file: "/srv/containers/vaultwarden-disabled/env/container.env"
+                secrets: []
+                auto_update: "disabled"
+                enabled: false
                 state: "created"
 verifier:
   name: "ansible"

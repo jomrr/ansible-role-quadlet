@@ -25,7 +25,9 @@ argument_specs:
         choices:
           - registry
           - local
-        description: Podman auto-update policy rendered for every container.
+          - disabled
+        description: Default Podman auto-update policy. `disabled` excludes containers from
+          auto-update unless overridden.
       quadlet_autoupdate_timer:
         type: bool
         required: false
@@ -287,7 +289,9 @@ argument_specs:
                 choices:
                   - registry
                   - local
-                description: Optional override for the global `quadlet_autoupdate` policy.
+                  - disabled
+                description: Optional override for `quadlet_autoupdate`. `disabled` excludes
+                  this container from auto-update.
               unit_options:
                 type: dict
                 required: false
