@@ -67,6 +67,8 @@ jobs:
             "$@" 2>&1 | tee "$QUADLET_DEBUG_DIR/$name.log" || true
           }
 
+          capture host-kernel-journal sudo -n journalctl -k -b --no-pager
+          capture host-apparmor-status sudo -n aa-status
           capture podman-info podman info
           capture container-inspect podman inspect quadlet
           capture container-logs podman logs --timestamps quadlet
