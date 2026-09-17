@@ -5,6 +5,7 @@
 # Internal packages required to render and run rootless Podman Quadlets.
 __quadlet_packages:
   - podman
+  - fuse-overlayfs
 
 # Single-value container keys rendered directly by the role.
 __quadlet_reserved_container_options:
