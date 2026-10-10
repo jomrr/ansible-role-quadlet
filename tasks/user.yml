@@ -3,12 +3,16 @@
 # file: tasks/user.yml
 
 - name: "QUADLET | Ensure service group exists"
+  become: true
+  become_user: root
   ansible.builtin.group:
     name: "{{ __quadlet_user.name }}"
     system: true
     state: present
 
 - name: "QUADLET | Create service user with subordinate IDs"
+  become: true
+  become_user: root
   ansible.builtin.command:
     cmd: >-
       useradd --system --add-subids-for-system --gid {{ __quadlet_user.name }}
@@ -19,6 +23,8 @@
   failed_when: __quadlet_useradd.rc not in [0, 9]
 
 - name: "QUADLET | Manage service user"
+  become: true
+  become_user: root
   ansible.builtin.user:
     name: "{{ __quadlet_user.name }}"
     uid: "{{ __quadlet_user.uid | default(omit) }}"
@@ -58,6 +64,8 @@
           XDG_RUNTIME_DIR: "/run/user/{{ __quadlet_service_user.uid }}"
 
     - name: "QUADLET | Ensure rootless user Quadlet directories exist"
+      become: true
+      become_user: root
       ansible.builtin.file:
         path: "{{ __quadlet_directory }}"
         owner: root
@@ -71,6 +79,8 @@
         loop_var: __quadlet_directory
 
     - name: "QUADLET | Enable linger for service user"
+      become: true
+      become_user: root
       ansible.builtin.command:
         argv:
           - loginctl
@@ -79,6 +89,8 @@
         creates: "/var/lib/systemd/linger/{{ __quadlet_user.name }}"
 
     - name: "QUADLET | Ensure user manager is running"
+      become: true
+      become_user: root
       ansible.builtin.systemd_service:
         name: "user@{{ __quadlet_service_user.uid }}.service"
         state: started

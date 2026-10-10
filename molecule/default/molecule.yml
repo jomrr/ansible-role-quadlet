@@ -12,20 +12,14 @@ provisioner:
     defaults:
       forks: 8
       interpreter_python: "auto_silent"
-      allow_world_readable_tmpfiles: true
       callbacks_enabled: "ansible.posix.profile_tasks,ansible.posix.timer"
       callback_result_format: "yaml"
-      remote_tmp: "/tmp/.ansible/tmp"
-    ssh_connection:
+    connection:
       pipelining: true
-  log: true
-  playbooks:
-    converge: "../resources/playbooks/converge.yml"
-    verify: "../resources/playbooks/verify.yml"
-    prepare: "../resources/playbooks/prepare.yml"
   inventory:
     group_vars:
       all:
+        ansible_podman_mount_detection: false
         quadlet_autoupdate: "disabled"
         quadlet_autoupdate_timer: false
         quadlet_users:
@@ -96,6 +90,11 @@ provisioner:
                 auto_update: "disabled"
                 enabled: false
                 state: "created"
+  log: true
+  playbooks:
+    prepare: "../resources/playbooks/prepare.yml"
+    converge: "../resources/playbooks/converge.yml"
+    verify: "../resources/playbooks/verify.yml"
 verifier:
   name: "ansible"
 scenario:

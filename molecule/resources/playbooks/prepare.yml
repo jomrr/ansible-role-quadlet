@@ -13,6 +13,21 @@
         update_cache: true
       when: ansible_facts.os_family == 'Debian'
 
+    - name: "QUADLET | Refresh DNF package metadata"
+      become: true
+      become_user: root
+      ansible.builtin.dnf:
+        update_cache: true
+      when: ansible_facts.pkg_mgr in ['dnf', 'dnf5']
+
+    - name: "QUADLET | Refresh Zypper package metadata"
+      become: true
+      become_user: root
+      community.general.zypper_repository:
+        repo: '*'
+        runrefresh: true
+      when: ansible_facts.pkg_mgr == 'zypper'
+
     # Keep subordinate IDs inside the outer rootless container's mapping.
     # Create the /etc override when vendor defaults live under /usr/etc.
     # These test-only ranges support secrets, not arbitrary container images.

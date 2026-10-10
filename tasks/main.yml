@@ -10,6 +10,8 @@
     label: "{{ __quadlet_user.name }}"
 
 - name: "QUADLET | Install packages"
+  become: true
+  become_user: root
   ansible.builtin.package:
     name: "{{ __quadlet_packages }}"
     state: present

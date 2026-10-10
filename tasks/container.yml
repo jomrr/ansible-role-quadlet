@@ -6,6 +6,8 @@
   ansible.builtin.import_tasks: assert-container.yml
 
 - name: "QUADLET | Initialize container data directory"
+  become: true
+  become_user: root
   ansible.builtin.command:
     argv:
       - install
@@ -17,6 +19,8 @@
     creates: "{{ quadlet_base_dir }}/{{ __quadlet_container.name }}/data"
 
 - name: "QUADLET | Ensure container directories exist"
+  become: true
+  become_user: root
   ansible.builtin.file:
     path: "{{ __quadlet_directory.path }}"
     owner: "{{ __quadlet_directory.owner }}"
@@ -33,6 +37,8 @@
     label: "{{ __quadlet_directory.path }}"
 
 - name: "QUADLET | Render container environment file"
+  become: true
+  become_user: root
   ansible.builtin.template:
     src: environment.env.j2
     dest: "{{ __quadlet_container.environment_file }}"
@@ -58,6 +64,8 @@
   notify: "restart user services"
 
 - name: "QUADLET | Render root-owned user Quadlet"
+  become: true
+  become_user: root
   ansible.builtin.template:
     src: container.container.j2
     dest: "/etc/containers/systemd/users/{{ __quadlet_service_user.uid }}/{{ __quadlet_container.name }}.container"
