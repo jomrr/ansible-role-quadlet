@@ -1,0 +1,6 @@
+---
+# role: quadlet
+# file: vars/Fedora.yml
+
+__quadlet_platform_packages:
+  - systemd-pam

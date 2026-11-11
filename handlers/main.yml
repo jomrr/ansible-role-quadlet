@@ -11,32 +11,14 @@
   environment: "{{ __quadlet_user_systemd_env }}"
   listen: "reload user manager"
 
-- name: "QUADLET | Restart user pod services"
-  become: true
-  become_user: "{{ __quadlet_handler_user.name }}"
-  ansible.builtin.systemd_service:
-    name: "{{ (__quadlet_pod.service_name | default(__quadlet_pod.name ~ '-pod')) ~ '.service' }}"
-    scope: user
-    state: restarted
-  environment: "{{ __quadlet_user_systemd_env }}"
-  when: (__quadlet_pod.state | default('started')) == 'started'
-  loop: "{{ __quadlet_handler_user.pods | default([]) }}"
-  loop_control:
-    loop_var: __quadlet_pod
-    label: "{{ __quadlet_pod.name }}.service"
-  listen: "restart user services"
-
-- name: "QUADLET | Restart user container services"
-  become: true
-  become_user: "{{ __quadlet_handler_user.name }}"
-  ansible.builtin.systemd_service:
-    name: "{{ __quadlet_container.name }}.service"
-    scope: user
-    state: restarted
-  environment: "{{ __quadlet_user_systemd_env }}"
-  when: (__quadlet_container.state | default('started')) == 'started'
-  loop: "{{ __quadlet_handler_user.containers | default([]) }}"
-  loop_control:
-    loop_var: __quadlet_container
-    label: "{{ __quadlet_container.name }}.service"
+- name: "QUADLET | Restart user services"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/restart.yml"
+  vars:
+    __quadlet_restart_pods: >-
+      {{ (__quadlet_handler_user.pods | rejectattr('state', 'defined') | list)
+         + (__quadlet_handler_user.pods | selectattr('state', 'defined') | selectattr('state', 'equalto', 'started') | list) }}
+    __quadlet_restart_with_pod: >-
+      {{ (__quadlet_container.start_with_pod | default(true) | bool)
+         and (__quadlet_container.pod | default('') | regex_replace('[.]pod$', ''))
+         in (__quadlet_restart_pods | map(attribute='name')) }}
   listen: "restart user services"

@@ -54,7 +54,7 @@
             {{
               __quadlet_user.containers | default([])
               | map('dict2items')
-              | map('selectattr', 'key', 'in', ['name', 'state'])
+              | map('selectattr', 'key', 'in', ['name', 'state', 'pod', 'start_with_pod'])
               | map('items2dict')
               | list
             }}

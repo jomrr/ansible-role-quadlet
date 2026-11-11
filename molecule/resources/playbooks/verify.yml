@@ -4,7 +4,7 @@
 
 - name: "Molecule | verify | quadlet"
   hosts: all
-  gather_facts: false
+  gather_facts: true
   vars:
     __quadlet_verify_vikunja_pod: /etc/containers/systemd/users/901/vikunja.pod
     __quadlet_verify_vikunja_quadlet: /etc/containers/systemd/users/901/vikunja.container
@@ -215,6 +215,10 @@
         quiet: true
         fail_msg: "quadlet_autoupdate_timer=false must stop and disable the user timer."
 
+    - name: "QUADLET | Verify deployment restart behavior"
+      ansible.builtin.import_tasks: ../tasks/restarts.yml
+
+    # Keep this last: older systemd-analyze versions replace the live user manager socket.
     - name: "QUADLET | Verify generated user units"
       become: true
       become_user: "{{ item.user }}"

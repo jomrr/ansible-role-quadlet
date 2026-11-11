@@ -1,0 +1,58 @@
+---
+# role: quadlet
+# file: molecule/resources/tasks/restarts.yml
+
+# These user units exercise real systemd start limits without application images.
+- name: "QUADLET | Exercise deployment restarts"
+  vars:
+    __quadlet_restart_test_units:
+      - restart-test-group
+      - restart-test-member
+      - restart-test-fileonly
+      - restart-test-manual
+      - restart-test-standalone
+  block:
+    - name: "QUADLET | Create test user unit directory"
+      become: true
+      become_user: quadlet_vikunja
+      ansible.builtin.file:
+        path: /var/lib/quadlet_vikunja/.config/systemd/user
+        state: directory
+        mode: "0755"
+
+    - name: "QUADLET | Install start-counting user services"
+      become: true
+      become_user: quadlet_vikunja
+      ansible.builtin.copy:
+        dest: "/var/lib/quadlet_vikunja/.config/systemd/user/{{ __quadlet_test_unit }}.service"
+        mode: "0644"
+        content: |
+          [Unit]
+          StartLimitIntervalSec=3600
+          StartLimitBurst=1
+          {% if __quadlet_test_unit == 'restart-test-group' %}
+          Wants=restart-test-member.service restart-test-fileonly.service
+          {% elif __quadlet_test_unit in ['restart-test-member', 'restart-test-fileonly'] %}
+          PartOf=restart-test-group.service
+          After=restart-test-group.service
+          {% endif %}
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=/bin/sh -c 'echo start >> %h/%n.starts'
+      loop: "{{ __quadlet_restart_test_units }}"
+      loop_control:
+        loop_var: __quadlet_test_unit
+
+    - name: "QUADLET | Verify initial, unchanged and changed deployments"
+      ansible.builtin.include_tasks: restart-case.yml
+      loop:
+        - { revision: 1, starts: 1, pod_starts: 1 }
+        - { revision: 1, starts: 1, pod_starts: 1 }
+        - { revision: 2, starts: 2, pod_starts: 2 }
+        - { revision: 3, starts: 2, pod_starts: 2, check_mode: true }
+        - { revision: 3, starts: 3, pod_starts: 3 }
+        - { revision: 4, starts: 4, pod_starts: 3, pod_state: created }
+      loop_control:
+        loop_var: __quadlet_restart_case
+        label: "{{ __quadlet_restart_case }}"

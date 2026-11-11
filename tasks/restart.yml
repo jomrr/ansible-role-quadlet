@@ -1,0 +1,71 @@
+---
+# role: quadlet
+# file: tasks/restart.yml
+
+# Reset all affected units before a pod can start its dependent containers.
+- name: "QUADLET | Reset user pod start limits"
+  become: true
+  become_user: "{{ __quadlet_handler_user.name }}"
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - --user
+      - reset-failed
+      - "{{ (__quadlet_pod.service_name | default(__quadlet_pod.name ~ '-pod')) ~ '.service' }}"
+  environment: "{{ __quadlet_user_systemd_env | combine({'LC_ALL': 'C'}) }}"
+  register: __quadlet_reset_pod
+  changed_when: __quadlet_reset_pod.rc == 0
+  # Newly rendered, unloaded units have no counters to reset.
+  failed_when: __quadlet_reset_pod.rc != 0 and 'not loaded' not in __quadlet_reset_pod.stderr
+  loop: "{{ __quadlet_restart_pods }}"
+  loop_control:
+    loop_var: __quadlet_pod
+    label: "{{ __quadlet_pod.name }}"
+
+- name: "QUADLET | Reset user container start limits"
+  become: true
+  become_user: "{{ __quadlet_handler_user.name }}"
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - --user
+      - reset-failed
+      - "{{ __quadlet_container.name }}.service"
+  environment: "{{ __quadlet_user_systemd_env | combine({'LC_ALL': 'C'}) }}"
+  register: __quadlet_reset_container
+  changed_when: __quadlet_reset_container.rc == 0
+  failed_when: __quadlet_reset_container.rc != 0 and 'not loaded' not in __quadlet_reset_container.stderr
+  when: (__quadlet_container.state | default('started')) == 'started' or __quadlet_restart_with_pod
+  loop: "{{ __quadlet_handler_user.containers }}"
+  loop_control:
+    loop_var: __quadlet_container
+    label: "{{ __quadlet_container.name }}.service"
+
+- name: "QUADLET | Restart user pod services"
+  become: true
+  become_user: "{{ __quadlet_handler_user.name }}"
+  ansible.builtin.systemd_service:
+    name: "{{ (__quadlet_pod.service_name | default(__quadlet_pod.name ~ '-pod')) ~ '.service' }}"
+    scope: user
+    state: restarted
+  environment: "{{ __quadlet_user_systemd_env }}"
+  loop: "{{ __quadlet_restart_pods }}"
+  loop_control:
+    loop_var: __quadlet_pod
+    label: "{{ __quadlet_pod.name }}"
+
+- name: "QUADLET | Restart user container services"
+  become: true
+  become_user: "{{ __quadlet_handler_user.name }}"
+  ansible.builtin.systemd_service:
+    name: "{{ __quadlet_container.name }}.service"
+    scope: user
+    state: restarted
+  environment: "{{ __quadlet_user_systemd_env }}"
+  when:
+    - (__quadlet_container.state | default('started')) == 'started'
+    - not __quadlet_restart_with_pod
+  loop: "{{ __quadlet_handler_user.containers }}"
+  loop_control:
+    loop_var: __quadlet_container
+    label: "{{ __quadlet_container.name }}.service"

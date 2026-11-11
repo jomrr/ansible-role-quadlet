@@ -1,0 +1,5 @@
+---
+# role: quadlet
+# file: vars/default.yml
+
+__quadlet_platform_packages: []

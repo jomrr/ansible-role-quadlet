@@ -23,7 +23,8 @@ Podman context.
 
 ### Managed
 
-- Podman package installation
+- Podman and fuse-overlayfs package installation, plus shadow-utils and
+  systemd-pam on Fedora
 - Dedicated Unix service users and matching primary groups
 - Subordinate UID/GID allocation for newly created service users through system
   shadow-utils defaults
@@ -151,6 +152,13 @@ from `<name>.pod`, unless the pod sets `service_name`. The role renders every
 pod and container for a service user before reloading the user manager once.
 Changed Quadlets, EnvironmentFiles, and managed secrets restart services
 whose requested state is `started` for the affected service user.
+
+Before restarting, the role resets the affected units' failed state and
+start-limit counters, including containers started by a restarted pod.
+Containers with `start_with_pod: true` (the default) are not restarted
+separately when their managed pod is restarted. Standalone containers,
+containers with `start_with_pod: false`, and containers whose pod is not
+restarted retain their own requested service state.
 
 The `enabled` value controls `WantedBy=` in the generated `[Install]`
 section. The role does not call `systemctl enable` for generated units.
