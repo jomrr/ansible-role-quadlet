@@ -28,22 +28,6 @@
         runrefresh: true
       when: ansible_facts.pkg_mgr == 'zypper'
 
-    # The Fedora test image loses the RPM-provided file capabilities.
-    - name: "QUADLET | Restore Fedora UID/GID helper capabilities"
-      become: true
-      become_user: root
-      community.general.capabilities:
-        path: "{{ __quadlet_mapping_helper.path }}"
-        capability: "{{ __quadlet_mapping_helper.capability }}"
-        state: present
-      loop:
-        - { path: /usr/bin/newuidmap, capability: 'cap_setuid=ep' }
-        - { path: /usr/bin/newgidmap, capability: 'cap_setgid=ep' }
-      loop_control:
-        loop_var: __quadlet_mapping_helper
-        label: "{{ __quadlet_mapping_helper.path }}"
-      when: ansible_facts.distribution == 'Fedora'
-
     # Keep subordinate IDs inside the outer rootless container's mapping.
     # Create the /etc override when vendor defaults live under /usr/etc.
     # These test-only ranges support secrets, not arbitrary container images.
@@ -71,3 +55,41 @@
       loop_control:
         loop_var: __quadlet_login_def
         label: "{{ __quadlet_login_def.key }}"
+
+    # These units exercise real start limits without application images.
+    # Install before converge so the role creates and starts the test user.
+    - name: "QUADLET | Create test user unit directory"
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /etc/systemd/user
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: "QUADLET | Install start-counting user services"
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        dest: "/etc/systemd/user/{{ __quadlet_test_unit }}.service"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          StartLimitIntervalSec=3600
+          StartLimitBurst=1
+          {% if __quadlet_test_unit == 'restart-test-group' %}
+          Wants=restart-test-member.service restart-test-fileonly.service
+          {% elif __quadlet_test_unit in ['restart-test-member', 'restart-test-fileonly'] %}
+          PartOf=restart-test-group.service
+          After=restart-test-group.service
+          {% endif %}
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=/bin/sh -c 'echo start >> %h/%n.starts'
+      loop: "{{ __quadlet_restart_test_units }}"
+      loop_control:
+        loop_var: __quadlet_test_unit

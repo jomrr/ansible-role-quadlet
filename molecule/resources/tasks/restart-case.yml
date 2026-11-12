@@ -5,49 +5,16 @@
 - name: "QUADLET | Apply deployment under strict start limits"
   ansible.builtin.include_role:
     name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
-    apply:
-      check_mode: "{{ __quadlet_restart_case.check_mode | default(false) }}"
+  when: __quadlet_restart_case.revision > 1
   vars:
-    quadlet_autoupdate: disabled
-    quadlet_autoupdate_timer: false
     quadlet_users:
-      - name: quadlet_vikunja
-        uid: 901
-        pods:
-          - name: restart-test
-            service_name: restart-test-group
-            state: "{{ __quadlet_restart_case.pod_state | default('started') }}"
-            unit_options:
-              Description: "Restart test revision {{ __quadlet_restart_case.revision }}"
-        containers:
-          - name: restart-test-member
-            pod: restart-test
-            image: localhost/restart-test:unused
-            environment_file: /srv/containers/restart-test-member/env/container.env
-            secrets: []
-          - name: restart-test-fileonly
-            pod: restart-test.pod
-            image: localhost/restart-test:unused
-            environment_file: /srv/containers/restart-test-fileonly/env/container.env
-            secrets: []
-            enabled: false
-            state: created
-          - name: restart-test-manual
-            pod: restart-test.pod
-            start_with_pod: false
-            image: localhost/restart-test:unused
-            environment_file: /srv/containers/restart-test-manual/env/container.env
-            secrets: []
-          - name: restart-test-standalone
-            image: localhost/restart-test:unused
-            environment_file: /srv/containers/restart-test-standalone/env/container.env
-            secrets: []
+      - "{{ __quadlet_restart_test_user }}"
 
 - name: "QUADLET | Read service start counts"
   become: true
-  become_user: quadlet_vikunja
+  become_user: quadlet_restart
   ansible.builtin.slurp:
-    src: "/var/lib/quadlet_vikunja/{{ __quadlet_test_unit }}.service.starts"
+    src: "/var/lib/quadlet_restart/{{ __quadlet_test_unit }}.service.starts"
   register: __quadlet_start_counts
   loop: "{{ __quadlet_restart_test_units }}"
   loop_control:
