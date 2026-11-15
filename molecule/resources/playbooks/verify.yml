@@ -91,6 +91,14 @@
         - path: /etc/containers/systemd/users/901/vaultwarden-disabled.container
           lines:
             - AutoUpdate=disabled
+        - path: /var/lib/quadlet_vikunja/.config/systemd/user/vaultwarden-build.timer
+          lines:
+            - OnCalendar=*-*-* 03:15:00
+            - RandomizedDelaySec=0
+        - path: /var/lib/quadlet_vikunja/.config/systemd/user/external-build.timer
+          lines:
+            - OnCalendar=weekly
+            - RandomizedDelaySec=900
         - path: "{{ __quadlet_verify_vikunja_env }}"
           lines:
             - VIKUNJA_DATABASE_PASSWORD_FILE=/run/secrets/vikunja_db_password
@@ -167,7 +175,7 @@
       loop_control:
         label: "{{ item.item }}"
 
-    - name: "QUADLET | Read auto-update timer state"
+    - name: "QUADLET | Read user timer states"
       become: true
       become_user: quadlet_vikunja
       ansible.builtin.command:
@@ -175,21 +183,41 @@
           - systemctl
           - --user
           - show
-          - podman-auto-update.timer
+          - "{{ __quadlet_timer.name }}"
           - --property=ActiveState,UnitFileState
       environment:
         XDG_RUNTIME_DIR: /run/user/901
         DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/901/bus
       changed_when: false
-      register: __quadlet_autoupdate_timer_status
+      register: __quadlet_timer_status
+      loop:
+        - name: podman-auto-update.timer
+          active: inactive
+          enabled: disabled
+        - name: vaultwarden-build.timer
+          active: active
+          enabled: enabled
+      loop_control:
+        loop_var: __quadlet_timer
+        label: "{{ __quadlet_timer.name }}"
 
-    - name: "QUADLET | Assert auto-update timer is stopped and disabled"
+    - name: "QUADLET | Assert requested user timer states"
       ansible.builtin.assert:
         that:
-          - "'ActiveState=inactive' in __quadlet_autoupdate_timer_status.stdout_lines"
-          - "'UnitFileState=disabled' in __quadlet_autoupdate_timer_status.stdout_lines"
+          - "'ActiveState=' ~ __quadlet_result.__quadlet_timer.active in __quadlet_result.stdout_lines"
+          - "'UnitFileState=' ~ __quadlet_result.__quadlet_timer.enabled in __quadlet_result.stdout_lines"
         quiet: true
-        fail_msg: "quadlet_autoupdate_timer=false must stop and disable the user timer."
+        fail_msg: "Unexpected state for {{ __quadlet_result.__quadlet_timer.name }}"
+      loop: "{{ __quadlet_timer_status.results }}"
+      loop_control:
+        loop_var: __quadlet_result
+        label: "{{ __quadlet_result.__quadlet_timer.name }}"
+
+    - name: "QUADLET | Verify initial image build and rebuild"
+      ansible.builtin.include_tasks: ../tasks/build-case.yml
+      loop: [1, 2]
+      loop_control:
+        loop_var: __quadlet_build_revision
 
     - name: "QUADLET | Verify deployment restart behavior"
       ansible.builtin.import_tasks: ../tasks/restarts.yml
@@ -213,6 +241,10 @@
             - vikunja.service
             - vaultwarden.service
             - vaultwarden-disabled.service
+            - vaultwarden-build.service
+            - vaultwarden-build.timer
+            - external-build.service
+            - external-build.timer
             - podman-image-prune.service
             - podman-image-prune.timer
       loop_control:

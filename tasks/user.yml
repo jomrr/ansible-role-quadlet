@@ -95,6 +95,13 @@
         name: "user@{{ __quadlet_service_user.uid }}.service"
         state: started
 
+    - name: "QUADLET | Configure image builds"
+      ansible.builtin.include_tasks: build.yml
+      loop: "{{ __quadlet_user.builds | default([]) }}"
+      loop_control:
+        loop_var: __quadlet_build
+        label: "{{ __quadlet_build.name }}"
+
     - name: "QUADLET | Render user pods"
       ansible.builtin.import_tasks: pod.yml
 
@@ -112,6 +119,20 @@
         path: "{{ __quadlet_service_user.home }}/.config/systemd/user"
         mode: "0755"
         state: directory
+
+    - name: "QUADLET | Render image rebuild timers"
+      become: true
+      become_user: "{{ __quadlet_user.name }}"
+      ansible.builtin.template:
+        src: build.timer.j2
+        dest: "{{ __quadlet_service_user.home }}/.config/systemd/user/{{ __quadlet_build.name }}-build.timer"
+        mode: "0644"
+      loop: "{{ __quadlet_user.builds | default([]) }}"
+      loop_control:
+        loop_var: __quadlet_build
+        label: "{{ __quadlet_build.name }}"
+      notify: "reload user manager"
+      register: __quadlet_build_timers
 
     - name: "QUADLET | Render Podman image prune units"
       become: true

@@ -30,6 +30,21 @@
     loop_var: __quadlet_container
     label: "{{ __quadlet_container.name }}.service"
 
+- name: "QUADLET | Manage image rebuild timers"
+  become: true
+  become_user: "{{ __quadlet_user.name }}"
+  ansible.builtin.systemd_service:
+    name: "{{ __quadlet_build.name }}-build.timer"
+    scope: user
+    enabled: true
+    state: started
+  environment: "{{ __quadlet_user_systemd_env }}"
+  when: not (ansible_check_mode and __quadlet_build_timers is changed)
+  loop: "{{ __quadlet_user.builds | default([]) }}"
+  loop_control:
+    loop_var: __quadlet_build
+    label: "{{ __quadlet_build.name }}"
+
 - name: "QUADLET | Manage Podman auto-update timer"
   become: true
   become_user: "{{ __quadlet_user.name }}"

@@ -19,8 +19,26 @@ quadlet_base_dir: /srv/containers
 # Base directory for default container data paths.
 # quadlet_base_dir: /opt/containers
 
+# Rootless Podman service users and their builds, pods or containers.
 quadlet_users: []
-# Rootless Podman service users and their pods or containers.
+
+# Example: managed Containerfile with the default weekly rebuild schedule.
+# quadlet_users:
+#   - name: app
+#     builds:
+#       - name: app
+#         containerfile: /srv/builds/app/Containerfile
+#         content: |
+#           FROM docker.io/library/alpine:latest
+#           CMD ["sleep", "infinity"]
+#         oncalendar: weekly
+#         randomizedelaysec: 900
+#     containers:
+#       - name: app
+#         image: app.build
+#         auto_update: local
+#         environment_file: /srv/containers/app/env/app.env
+#         secrets: []
 
 # Example: app container using PostgreSQL on the container host.
 # quadlet_users:

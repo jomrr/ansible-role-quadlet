@@ -32,6 +32,8 @@ Podman context.
   `/etc/containers/systemd/users/<UID>/`
 - Root-owned Quadlet `.pod` files for rootless Podman pods
 - Root-owned Quadlet `.container` files for rootless user services
+- Root-owned Quadlet `.build` files with configurable user rebuild timers
+- Optional inline Containerfile content and its parent directory
 - Non-secret EnvironmentFiles at the explicitly configured `environment_file`
   paths
 - Default application data directories below `quadlet_base_dir/<container>/data`
@@ -47,7 +49,7 @@ Podman context.
 
 - Rootful or system-wide Quadlets below `/etc/containers/systemd/`
 - Secrets stored in Quadlet files, EnvironmentFiles, defaults, or templates
-- Container image building or image publishing
+- Provisioning additional build-context files or publishing built images
 - Firewall policy
 - Reverse proxy or TLS certificate lifecycle
 - Application-specific database provisioning
@@ -62,6 +64,12 @@ Podman context.
   `--add-subids-for-system`.
 - Rootless Podman secret creation requires a working rootless Podman context for
   each service user.
+- Image builds with timers require Podman 5.4 or newer, which honors
+  `RemainAfterExit=no` in build Quadlets.
+- Without `builds[].content`, Containerfiles must already exist on the target
+  host and be readable by the service user.
+- Additional build-context files referenced by the Containerfile must be
+  provisioned separately and be readable by the service user.
 
 ## Dependencies
 
@@ -141,6 +149,12 @@ quadlet_users: []
   rootless user Quadlet
 - `/etc/containers/systemd/users/<UID>/<pod>.pod` root-owned rootless pod
   Quadlet
+- `/etc/containers/systemd/users/<UID>/<build>.build` root-owned rootless image
+  build Quadlet
+- `<service-user-home>/.config/systemd/user/<build>-build.timer` user-owned
+  image rebuild timer, weekly by default
+- `<containerfile>` root-owned Containerfile, group service-user and mode
+  `0640`, when build `content` is supplied
 - `<service-user-home>/.config/systemd/user/podman-image-prune.service`
   user-owned service for removing dangling Podman images
 - `<service-user-home>/.config/systemd/user/podman-image-prune.timer` user-owned
@@ -161,14 +175,18 @@ a UID for a simulated creation, even when `uid` is explicitly configured.
 The role skips that user's dependent tasks without creating an account
 or substituting the inventory UID. Existing service users continue through
 the user-dependent tasks in check mode, including in mixed user lists.
+Timer state checks are skipped when their unit files would change; check
+mode cannot load units that it has only predicted creating or updating.
 
 ## Service Behavior
 
 Generated container services are user services named `<name>.service` from
 `<name>.container`. Generated pod services default to `<name>-pod.service`
-from `<name>.pod`, unless the pod sets `service_name`. The role renders every
-pod and container for a service user before reloading the user manager once.
-Changed Quadlets, EnvironmentFiles, and managed secrets restart services
+from `<name>.pod`, unless the pod sets `service_name`. Build Quadlets generate
+`<name>-build.service`. The role renders every build, pod, container and
+timer for a service user before reloading the user manager once.
+Changed Quadlets, managed Containerfiles, EnvironmentFiles, and managed secrets
+restart services
 whose requested state is `started` for the affected service user.
 
 Before restarting, the role resets the affected units' failed state and
@@ -213,6 +231,30 @@ another target. Disabled items cannot set `install_options.WantedBy`.
 
 ## Operational Notes
 
+- Declare image builds under `quadlet_users[].builds` with `name` and
+  `containerfile`. The name must be a lowercase image name without slashes or
+  whitespace. The Containerfile path is absolute on the target host; its
+  directory is the build context. Each build tags `localhost/<name>:latest` and
+  uses `Pull=newer` to refresh base images when the registry has a newer image.
+- Set `builds[].content` to define the complete Containerfile inline. The role
+  creates its parent directory with owner/group `root` and mode `0755`, then
+  writes the file with owner `root`, group service-user and mode `0640`. Without
+  `content`, the role leaves that file and directory untouched. Additional files
+  used by `COPY` or `ADD` are not provisioned by the role. Do not embed secrets
+  in Containerfiles or image layers.
+- Reference a build from a container of the same user with `image: <name>.build`
+  and set `auto_update: local`. Quadlet resolves the image tag and builds it
+  before starting the container. The role enables `<name>-build.timer` for every
+  declared build. `oncalendar` sets its `OnCalendar=` expression and defaults to
+  `weekly` (Monday at 00:00 in the host's timezone). `randomizedelaysec` sets
+  `RandomizedDelaySec=` in seconds and defaults to `900`; `0` disables the
+  randomized delay. Missed runs are caught up through `Persistent=true`.
+  `RemainAfterExit=no` allows repeated timer activations.
+- A scheduled rebuild updates the local image, not the running container. The
+  next run of the user's Podman auto-update timer applies the new image to
+  containers with `auto_update: local`. Keep `quadlet_autoupdate_timer` enabled
+  for automatic rollout. Removing a build from inventory does not remove its
+  unit files or disable its timer; the role does not purge resources.
 - Use file-based application settings such as `*_FILE=/run/secrets/<secret>`
   whenever the application supports them.
 - Declare shared pod-level port publishing, networks, and volumes under `pods`.
@@ -488,6 +530,39 @@ command uses `container_options`.
                   HealthCmd: >-
                     wget -q --tries=1
                     http://127.0.0.1:80/v1/health -O -
+```
+
+### Inline Containerfile with a custom rebuild schedule
+
+The role writes the Containerfile and builds as the `app` service user.
+This example rebuilds daily at 03:00 with up to five minutes of delay.
+Omit the timer settings for the defaults `weekly` and `900`.
+Local auto-update deploys the resulting image.
+
+```yaml
+---
+- name: Deploy locally built application
+  hosts: quadlet
+  gather_facts: true
+  roles:
+    - role: jomrr.quadlet
+      vars:
+        quadlet_users:
+          - name: app
+            builds:
+              - name: app
+                containerfile: /srv/builds/app/Containerfile
+                content: |
+                  FROM docker.io/library/alpine:latest
+                  CMD ["sleep", "infinity"]
+                oncalendar: "*-*-* 03:00:00"
+                randomizedelaysec: 300
+            containers:
+              - name: app
+                image: app.build
+                auto_update: local
+                environment_file: /srv/containers/app/env/app.env
+                secrets: []
 ```
 
 ## References

@@ -1,0 +1,13 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+[Unit]
+Description=Rebuild {{ __quadlet_build.name }} Podman image
+
+[Timer]
+OnCalendar={{ __quadlet_build.oncalendar | default('weekly') }}
+RandomizedDelaySec={{ __quadlet_build.randomizedelaysec | default(900) }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

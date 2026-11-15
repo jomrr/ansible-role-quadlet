@@ -66,6 +66,16 @@ provisioner:
         quadlet_users:
           - name: "quadlet_vikunja"
             uid: 901
+            builds:
+              - name: "vaultwarden"
+                containerfile: "/srv/quadlet-managed-build/context/Containerfile"
+                content: |
+                  FROM scratch
+                  LABEL quadlet.test.revision="1"
+                oncalendar: "*-*-* 03:15:00"
+                randomizedelaysec: 0
+              - name: "external"
+                containerfile: "/srv/quadlet-build-test/Containerfile"
             pods:
               - name: "vikunja"
                 ports:
@@ -96,7 +106,7 @@ provisioner:
                 enabled: false
                 state: "created"
               - name: "vaultwarden"
-                image: "localhost/vaultwarden:test"
+                image: "vaultwarden.build"
                 container_name: "vaultwarden"
                 environment_file: "/srv/containers/vaultwarden/env/vaultwarden.env"
                 environment:

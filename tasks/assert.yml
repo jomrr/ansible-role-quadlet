@@ -2,6 +2,20 @@
 # role: quadlet
 # file: tasks/assert.yml
 
+- name: "QUADLET | Validate build names and Containerfile paths"
+  ansible.builtin.assert:
+    that:
+      - __quadlet_build.name is match('^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*\Z')
+      - __quadlet_build.containerfile is match('^/[^\r\n\x00]+\Z')
+    fail_msg: >-
+      Build {{ __quadlet_build.name }}: builds[].name must be a lowercase image name without
+      slashes or whitespace; builds[].containerfile must be an absolute path without line breaks or NUL bytes.
+    quiet: true
+  loop: "{{ __quadlet_user.builds | default([]) }}"
+  loop_control:
+    loop_var: __quadlet_build
+    label: "{{ __quadlet_build.name }}"
+
 - name: "QUADLET | Validate Quadlet file names"
   ansible.builtin.assert:
     that:

@@ -63,6 +63,38 @@ argument_specs:
             required: false
             default: /usr/sbin/nologin
             description: Login shell for the service user.
+          builds:
+            type: list
+            elements: dict
+            required: false
+            default: []
+            description: Rootless image builds with a configurable rebuild timer for each
+              build.
+            options:
+              name:
+                type: str
+                required: true
+                description: Lowercase image name and Quadlet base name; produces `localhost/<name>:latest`.
+              containerfile:
+                type: path
+                required: true
+                description: Absolute path to a Containerfile on the target host; its directory
+                  is the build context.
+              content:
+                type: str
+                required: false
+                description: Optional complete Containerfile content written to `containerfile`;
+                  omit to use an existing file.
+              oncalendar:
+                type: str
+                required: false
+                default: weekly
+                description: Systemd `OnCalendar=` expression for the image rebuild timer.
+              randomizedelaysec:
+                type: int
+                required: false
+                default: 900
+                description: Maximum randomized delay in seconds, written to `RandomizedDelaySec=`.
           pods:
             type: list
             elements: dict
@@ -155,7 +187,8 @@ argument_specs:
               image:
                 type: str
                 required: true
-                description: Container image reference written to `Image=`.
+                description: Container image reference written to `Image=`, including `<name>.build`
+                  for a managed build.
               container_name:
                 type: str
                 required: false

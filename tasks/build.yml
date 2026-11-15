@@ -1,0 +1,40 @@
+---
+# role: quadlet
+# file: tasks/build.yml
+
+- name: "QUADLET | Manage supplied Containerfile"
+  when: __quadlet_build.content is defined
+  block:
+    - name: "QUADLET | Ensure build context directory exists"
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: "{{ __quadlet_build.containerfile | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: "QUADLET | Write Containerfile content"
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        dest: "{{ __quadlet_build.containerfile }}"
+        content: "{{ __quadlet_build.content }}"
+        owner: root
+        group: "{{ __quadlet_user.name }}"
+        mode: "0640"
+      notify: "restart user services"
+
+- name: "QUADLET | Render image build Quadlet"
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: build.build.j2
+    dest: "/etc/containers/systemd/users/{{ __quadlet_service_user.uid }}/{{ __quadlet_build.name }}.build"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - "reload user manager"
+    - "restart user services"

@@ -28,6 +28,15 @@
         runrefresh: true
       when: ansible_facts.pkg_mgr == 'zypper'
 
+    # Container networking is ready, but no network manager activates this target.
+    # Quadlet builds wait for it through podman-user-wait-network-online.service.
+    - name: "QUADLET | Mark test container networking online"
+      become: true
+      become_user: root
+      ansible.builtin.systemd_service:
+        name: network-online.target
+        state: started
+
     # Keep subordinate IDs inside the outer rootless container's mapping.
     # Create the /etc override when vendor defaults live under /usr/etc.
     # These test-only ranges support secrets, not arbitrary container images.
@@ -55,6 +64,29 @@
       loop_control:
         loop_var: __quadlet_login_def
         label: "{{ __quadlet_login_def.key }}"
+
+    - name: "QUADLET | Create image build test context"
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /srv/quadlet-build-test
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # No base image download or application container is needed for these builds.
+    - name: "QUADLET | Prepare image build test Containerfile"
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        dest: /srv/quadlet-build-test/Containerfile
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          FROM scratch
+          LABEL quadlet.test.revision="1"
 
     # These units exercise real start limits without application images.
     # Install before converge so the role creates and starts the test user.

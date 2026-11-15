@@ -1,0 +1,44 @@
+---
+# role: quadlet
+# file: molecule/resources/tasks/build-case.yml
+
+- name: "QUADLET | Update image build test revision"
+  become: true
+  become_user: root
+  ansible.builtin.copy:
+    dest: /srv/quadlet-managed-build/context/Containerfile
+    owner: root
+    group: quadlet_vikunja
+    mode: "0640"
+    content: |
+      FROM scratch
+      LABEL quadlet.test.revision="{{ __quadlet_build_revision }}"
+  # The first build must consume content provisioned by the role, not this fixture.
+  when: __quadlet_build_revision > 1
+
+# A timer starts its service; restarting here would hide RemainAfterExit regressions.
+- name: "QUADLET | Start image build service"
+  become: true
+  become_user: quadlet_vikunja
+  ansible.builtin.systemd_service:
+    name: vaultwarden-build.service
+    scope: user
+    state: started
+  environment:
+    XDG_RUNTIME_DIR: /run/user/901
+    DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/901/bus
+
+- name: "QUADLET | Inspect built image"
+  become: true
+  become_user: quadlet_vikunja
+  containers.podman.podman_image_info:
+    name: localhost/vaultwarden:latest
+  environment:
+    XDG_RUNTIME_DIR: /run/user/901
+  register: __quadlet_built_image
+
+- name: "QUADLET | Assert image reflects the current Containerfile"
+  ansible.builtin.assert:
+    that:
+      - __quadlet_built_image.images[0].Labels['quadlet.test.revision'] == (__quadlet_build_revision | string)
+    quiet: true

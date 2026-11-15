@@ -1,0 +1,14 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+[Unit]
+Description=Build {{ __quadlet_build.name }} Podman image
+
+[Build]
+File={{ __quadlet_build.containerfile }}
+SetWorkingDirectory=file
+ImageTag=localhost/{{ __quadlet_build.name }}:latest
+Pull=newer
+
+[Service]
+RemainAfterExit=no
