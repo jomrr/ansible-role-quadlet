@@ -28,6 +28,36 @@
         runrefresh: true
       when: ansible_facts.pkg_mgr == 'zypper'
 
+    - name: "QUADLET | Ensure nested Podman configuration directory exists"
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /etc/containers/storage.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # Configure storage before the role initializes Podman for service users.
+    # The main file supports older Podman; the drop-in overrides newer vendor defaults.
+    # This affects only the inner Podman, including systemd-started builds.
+    - name: "QUADLET | Use VFS storage for nested Podman"
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        dest: "/etc/containers/{{ __quadlet_storage_config }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [storage]
+          driver = "vfs"
+      loop:
+        - storage.conf
+        - storage.conf.d/99-molecule.conf
+      loop_control:
+        loop_var: __quadlet_storage_config
+
     # Container networking is ready, but no network manager activates this target.
     # Quadlet builds wait for it through podman-user-wait-network-online.service.
     - name: "QUADLET | Mark test container networking online"
