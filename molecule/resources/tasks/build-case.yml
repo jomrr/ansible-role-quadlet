@@ -16,17 +16,43 @@
   # The first build must consume content provisioned by the role, not this fixture.
   when: __quadlet_build_revision > 1
 
-# A timer starts its service; restarting here would hide RemainAfterExit regressions.
-- name: "QUADLET | Start image build service"
-  become: true
-  become_user: quadlet_vikunja
-  ansible.builtin.systemd_service:
-    name: vaultwarden-build.service
-    scope: user
-    state: started
-  environment:
-    XDG_RUNTIME_DIR: /run/user/901
-    DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/901/bus
+- name: "QUADLET | Build image with failure diagnostics"
+  block:
+    # A timer starts its service; restarting here would hide RemainAfterExit regressions.
+    - name: "QUADLET | Start image build service"
+      become: true
+      become_user: quadlet_vikunja
+      ansible.builtin.systemd_service:
+        name: vaultwarden-build.service
+        scope: user
+        state: started
+      environment:
+        XDG_RUNTIME_DIR: /run/user/901
+        DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/901/bus
+  rescue:
+    # Read as root: ephemeral test containers need not have persistent user journals.
+    - name: "QUADLET | Read failed image build journal"
+      become: true
+      become_user: root
+      ansible.builtin.command:
+        argv:
+          - journalctl
+          - --boot
+          - --no-pager
+          - --output=short-precise
+          - --lines=100
+          - _SYSTEMD_USER_UNIT=vaultwarden-build.service
+          - "+"
+          - USER_UNIT=vaultwarden-build.service
+      register: __quadlet_build_journal
+      changed_when: false
+
+    - name: "QUADLET | Report image build failure with journal"
+      ansible.builtin.fail:
+        msg: |
+          {{ ansible_failed_result.msg }}
+          Journal for vaultwarden-build.service:
+          {{ __quadlet_build_journal.stdout }}
 
 - name: "QUADLET | Inspect built image"
   become: true
