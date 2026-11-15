@@ -7,8 +7,37 @@
     name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
   when: __quadlet_restart_case.revision > 1
   vars:
+    quadlet_prune_timer: "{{ __quadlet_restart_case.prune_timer }}"
     quadlet_users:
       - "{{ __quadlet_restart_test_user }}"
+
+- name: "QUADLET | Read image prune timer state after deployment"
+  become: true
+  become_user: quadlet_restart
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - --user
+      - show
+      - podman-image-prune.timer
+      - --property=ActiveState,UnitFileState
+  environment:
+    XDG_RUNTIME_DIR: /run/user/902
+    DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/902/bus
+  changed_when: false
+  register: __quadlet_prune_timer_status
+
+- name: "QUADLET | Assert image prune timer follows the requested state"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ('ActiveState=' ~ (__quadlet_restart_case.prune_timer | ternary('active', 'inactive')))
+        in __quadlet_prune_timer_status.stdout_lines
+      - >-
+        ('UnitFileState=' ~ (__quadlet_restart_case.prune_timer | ternary('enabled', 'disabled')))
+        in __quadlet_prune_timer_status.stdout_lines
+    quiet: true
+    fail_msg: "Unexpected timer state for quadlet_prune_timer={{ __quadlet_restart_case.prune_timer }}."
 
 - name: "QUADLET | Read service start counts"
   become: true

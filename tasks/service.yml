@@ -39,3 +39,13 @@
     enabled: "{{ quadlet_autoupdate_timer }}"
     state: "{{ quadlet_autoupdate_timer | ternary('started', 'stopped') }}"
   environment: "{{ __quadlet_user_systemd_env }}"
+
+- name: "QUADLET | Manage Podman image prune timer"
+  become: true
+  become_user: "{{ __quadlet_user.name }}"
+  ansible.builtin.systemd_service:
+    name: podman-image-prune.timer
+    scope: user
+    enabled: "{{ quadlet_prune_timer }}"
+    state: "{{ quadlet_prune_timer | ternary('started', 'stopped') }}"
+  environment: "{{ __quadlet_user_systemd_env }}"

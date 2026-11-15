@@ -6,9 +6,9 @@
 - name: "QUADLET | Verify baseline and changed deployments"
   ansible.builtin.include_tasks: restart-case.yml
   loop:
-    - { revision: 1, starts: 1, pod_starts: 1 }
-    - { revision: 2, starts: 2, pod_starts: 2 }
-    - { revision: 3, starts: 3, pod_starts: 2, pod_state: created }
+    - { revision: 1, starts: 1, pod_starts: 1, prune_timer: true }
+    - { revision: 2, starts: 2, pod_starts: 2, prune_timer: false }
+    - { revision: 3, starts: 3, pod_starts: 2, pod_state: created, prune_timer: true }
   loop_control:
     loop_var: __quadlet_restart_case
     label: "{{ __quadlet_restart_case }}"

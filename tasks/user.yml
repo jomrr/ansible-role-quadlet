@@ -105,6 +105,28 @@
         loop_var: __quadlet_container
         label: "{{ __quadlet_container.name }}"
 
+    - name: "QUADLET | Ensure user unit directory exists"
+      become: true
+      become_user: "{{ __quadlet_user.name }}"
+      ansible.builtin.file:
+        path: "{{ __quadlet_service_user.home }}/.config/systemd/user"
+        mode: "0755"
+        state: directory
+
+    - name: "QUADLET | Render Podman image prune units"
+      become: true
+      become_user: "{{ __quadlet_user.name }}"
+      ansible.builtin.template:
+        src: "{{ __quadlet_prune_unit }}.j2"
+        dest: "{{ __quadlet_service_user.home }}/.config/systemd/user/{{ __quadlet_prune_unit }}"
+        mode: "0644"
+      loop:
+        - podman-image-prune.service
+        - podman-image-prune.timer
+      loop_control:
+        loop_var: __quadlet_prune_unit
+      notify: "reload user manager"
+
     - name: "QUADLET | Apply user service changes"
       ansible.builtin.meta: flush_handlers
 

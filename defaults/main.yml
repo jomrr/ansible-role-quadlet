@@ -11,6 +11,10 @@ quadlet_autoupdate_timer: true
 # Whether the user timer is enabled and running; independent of container policies.
 # quadlet_autoupdate_timer: false
 
+# Whether the user timer that removes dangling images is enabled and running
+quadlet_prune_timer: true
+# quadlet_prune_timer: false
+
 quadlet_base_dir: /srv/containers
 # Base directory for default container data paths.
 # quadlet_base_dir: /opt/containers

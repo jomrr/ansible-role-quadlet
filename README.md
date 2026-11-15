@@ -40,6 +40,8 @@ Podman context.
 - Generated user service installation and runtime state
 - Configured rootless Podman auto-update timer state for every managed service
   user
+- Optional daily cleanup of dangling Podman images for every managed service
+  user, enabled by default
 
 ### Not Managed
 
@@ -109,6 +111,18 @@ Default:
 quadlet_autoupdate_timer: true
 ```
 
+### `quadlet_prune_timer`
+
+Type: `bool`. Required: `false`.
+
+Whether the user timer that removes dangling images is enabled and running.
+
+Default:
+
+```yaml
+quadlet_prune_timer: true
+```
+
 ### `quadlet_users`
 
 Type: `list`. Required: `false`.
@@ -127,6 +141,10 @@ quadlet_users: []
   rootless user Quadlet
 - `/etc/containers/systemd/users/<UID>/<pod>.pod` root-owned rootless pod
   Quadlet
+- `<service-user-home>/.config/systemd/user/podman-image-prune.service`
+  user-owned service for removing dangling Podman images
+- `<service-user-home>/.config/systemd/user/podman-image-prune.timer` user-owned
+  daily image cleanup timer
 - `<environment_file>` explicitly configured non-secret EnvironmentFile
 - `/srv/containers/<container>/data` default application data directory
 
@@ -238,6 +256,14 @@ another target. Disabled items cannot set `install_options.WantedBy`.
   auto-update invocations can still update containers with an active policy. To
   disable both the default policy and the timer, set `quadlet_autoupdate:
   disabled` and `quadlet_autoupdate_timer: false`.
+- `quadlet_prune_timer` defaults to `true`. Each managed user's
+  `podman-image-prune.timer` runs `podman image prune --force` daily at 01:00 in
+  the host's timezone, with up to 900 seconds of randomized delay.
+  `Persistent=true` catches up missed runs when the timer becomes active. Only
+  dangling images in that user's Podman storage are removed, not all unused
+  images. Set `quadlet_prune_timer: false` to stop and disable the timer; its
+  unit files remain installed. This setting is independent of auto-update
+  policies and the auto-update timer.
 - A changed auto-update policy takes effect on an existing container when its
   service recreates it. The role restarts services with `state: started` after
   configuration changes. `state: created` only renders files; a reload alone

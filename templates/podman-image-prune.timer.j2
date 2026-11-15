@@ -1,0 +1,13 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+[Unit]
+Description=Remove dangling Podman images daily
+
+[Timer]
+OnCalendar=*-*-* 01:00:00
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target

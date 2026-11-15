@@ -213,5 +213,7 @@
             - vikunja.service
             - vaultwarden.service
             - vaultwarden-disabled.service
+            - podman-image-prune.service
+            - podman-image-prune.timer
       loop_control:
         label: "{{ item.user }}"

@@ -33,6 +33,12 @@ argument_specs:
         required: false
         default: true
         description: Whether the Podman auto-update timer is enabled for service users.
+      quadlet_prune_timer:
+        type: bool
+        required: false
+        default: true
+        description: Whether the user timer that removes dangling images is enabled and
+          running.
       quadlet_users:
         type: list
         elements: dict

@@ -1,0 +1,9 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+[Unit]
+Description=Remove dangling Podman images
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/podman image prune --force
