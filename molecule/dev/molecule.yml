@@ -157,28 +157,46 @@ platforms:
     pre_build_image: true
     override_command: false
     systemd: "true"
+    extra_opts:
+      - "--tmpfs=/srv/quadlet-managed-build:rw,mode=0755"
+      - "--tmpfs=/var/tmp:rw,mode=1777"
   - name: "debian-latest-quadlet"
     image: "docker.io/jomrr/molecule-debian:latest"
     pre_build_image: true
     override_command: false
     systemd: "true"
+    extra_opts:
+      - "--tmpfs=/srv/quadlet-managed-build:rw,mode=0755"
+      - "--tmpfs=/var/tmp:rw,mode=1777"
   - name: "fedora-latest-quadlet"
     image: "docker.io/jomrr/molecule-fedora:latest"
     pre_build_image: true
     override_command: false
     systemd: "true"
+    extra_opts:
+      - "--tmpfs=/srv/quadlet-managed-build:rw,mode=0755"
+      - "--tmpfs=/var/tmp:rw,mode=1777"
   - name: "opensuse-leap-latest-quadlet"
     image: "docker.io/jomrr/molecule-opensuse-leap:latest"
     pre_build_image: true
     override_command: false
     systemd: "true"
+    extra_opts:
+      - "--tmpfs=/srv/quadlet-managed-build:rw,mode=0755"
+      - "--tmpfs=/var/tmp:rw,mode=1777"
   - name: "opensuse-tumbleweed-latest-quadlet"
     image: "docker.io/jomrr/molecule-opensuse-tumbleweed:latest"
     pre_build_image: true
     override_command: false
     systemd: "true"
+    extra_opts:
+      - "--tmpfs=/srv/quadlet-managed-build:rw,mode=0755"
+      - "--tmpfs=/var/tmp:rw,mode=1777"
   - name: "ubuntu-latest-quadlet"
     image: "docker.io/jomrr/molecule-ubuntu:latest"
     pre_build_image: true
     override_command: false
     systemd: "true"
+    extra_opts:
+      - "--tmpfs=/srv/quadlet-managed-build:rw,mode=0755"
+      - "--tmpfs=/var/tmp:rw,mode=1777"

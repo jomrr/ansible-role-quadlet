@@ -154,3 +154,6 @@ platforms:
     pre_build_image: true
     override_command: false
     systemd: "true"
+    extra_opts:
+      - "--tmpfs=/srv/quadlet-managed-build:rw,mode=0755"
+      - "--tmpfs=/var/tmp:rw,mode=1777"
