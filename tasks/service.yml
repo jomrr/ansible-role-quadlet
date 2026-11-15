@@ -49,3 +49,4 @@
     enabled: "{{ quadlet_prune_timer }}"
     state: "{{ quadlet_prune_timer | ternary('started', 'stopped') }}"
   environment: "{{ __quadlet_user_systemd_env }}"
+  when: not (ansible_check_mode and __quadlet_prune_units is changed)

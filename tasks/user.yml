@@ -126,6 +126,7 @@
       loop_control:
         loop_var: __quadlet_prune_unit
       notify: "reload user manager"
+      register: __quadlet_prune_units
 
     - name: "QUADLET | Apply user service changes"
       ansible.builtin.meta: flush_handlers
