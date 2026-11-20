@@ -237,7 +237,6 @@ argument_specs:
                   value:
                     type: str
                     required: false
-                    no_log: true
                     description: Optional desired content of the managed rootless Podman
                       secret.
                   value_file:
