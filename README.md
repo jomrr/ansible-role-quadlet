@@ -82,6 +82,31 @@ collections:
 
 ## Role Variables
 
+### `quadlet_containers_conf`
+
+Type: `dict`. Required: `false`.
+
+Podman containers.conf options grouped by TOML section for managed service
+users. An empty mapping leaves the drop-in untouched.
+
+Default:
+
+```yaml
+quadlet_containers_conf: {}
+```
+
+### `quadlet_backup`
+
+Type: `bool`. Required: `false`.
+
+Back up the previous managed containers.conf drop-in when replacing it.
+
+Default:
+
+```yaml
+quadlet_backup: true
+```
+
 ### `quadlet_base_dir`
 
 Type: `path`. Required: `false`.
@@ -145,6 +170,8 @@ quadlet_users: []
 
 ## Managed Files
 
+- `<service-user-home>/.config/containers/containers.conf.d/90-quadlet.conf`
+  Optional user-owned Podman configuration drop-in (mode `0600`).
 - `/etc/containers/systemd/users/<UID>/<container>.container` root-owned
   rootless user Quadlet
 - `/etc/containers/systemd/users/<UID>/<pod>.pod` root-owned rootless pod
@@ -231,6 +258,17 @@ another target. Disabled items cannot set `install_options.WantedBy`.
 
 ## Operational Notes
 
+- Set `quadlet_containers_conf` for all managed users, or
+  `quadlet_users[].containers_conf` to replace that mapping for one user. Use
+  section names and native YAML option values. Omitted settings default to no
+  management; an empty mapping leaves even a previous drop-in untouched. To undo
+  an override, set the desired value or remove the role's drop-in. Other
+  configuration files are not modified.
+- Set `engine.healthcheck_events` to `false` on Podman versions supporting that
+  option to suppress healthcheck events without disabling the checks. Podman
+  reads the drop-in on subsequent invocations; changing it does not force a
+  service restart or recreate existing containers. Use non-secret configuration
+  only.
 - Declare image builds under `quadlet_users[].builds` with `name` and
   `containerfile`. The name must be a lowercase image name without slashes or
   whitespace. The Containerfile path is absolute on the target host; its
@@ -366,6 +404,9 @@ references.
       vars:
         quadlet_users:
           - name: vikunja
+            containers_conf:
+              engine:
+                healthcheck_events: false
             containers:
               - name: vikunja
                 image: docker.io/vikunja/vikunja:latest

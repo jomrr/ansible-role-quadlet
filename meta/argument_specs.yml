@@ -13,6 +13,16 @@ argument_specs:
       - Manages non-secret EnvironmentFiles and rootless Podman secret references.
       - Reloads user managers and restarts changed services when required.
     options:
+      quadlet_containers_conf:
+        type: dict
+        default: {}
+        description: Podman containers.conf options grouped by TOML section for managed
+          service users. An empty mapping leaves the drop-in untouched.
+      quadlet_backup:
+        type: bool
+        default: true
+        description: Back up the previous managed containers.conf drop-in when replacing
+          it.
       quadlet_base_dir:
         type: path
         required: false
@@ -63,6 +73,10 @@ argument_specs:
             required: false
             default: /usr/sbin/nologin
             description: Login shell for the service user.
+          containers_conf:
+            type: dict
+            description: Complete per-user override of quadlet_containers_conf. An empty
+              mapping skips management for this user.
           builds:
             type: list
             elements: dict

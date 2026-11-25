@@ -1,0 +1,9 @@
+{{ ansible_managed | comment(prefix_count=0, postfix_count=0) }}
+# file: {{ template_destpath }}
+{% for section, options in __quadlet_containers_conf.items() %}
+
+[{{ section }}]
+{% for key, value in options.items() %}
+{{ key if key is match('^[A-Za-z0-9_-]+\\Z') else key | to_json(ensure_ascii=false) }} = {% include '_toml_value.j2' %}{{ '\n' -}}
+{% endfor %}
+{% endfor %}

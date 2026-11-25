@@ -95,6 +95,30 @@
         name: "user@{{ __quadlet_service_user.uid }}.service"
         state: started
 
+    - name: "user | Configure rootless Podman options"
+      vars:
+        __quadlet_containers_conf: "{{ __quadlet_user.containers_conf | default(quadlet_containers_conf) }}"
+      when: __quadlet_containers_conf | length > 0
+      block:
+        - name: "user | Create user containers.conf drop-in directory"
+          become: true
+          become_user: "{{ __quadlet_user.name }}"
+          ansible.builtin.file:
+            path: "{{ __quadlet_service_user.home }}/.config/containers/containers.conf.d"
+            state: directory
+            mode: "0700"
+
+        - name: "user | Write user containers.conf drop-in"
+          become: true
+          become_user: "{{ __quadlet_user.name }}"
+          ansible.builtin.template:
+            src: containers.conf.j2
+            dest: "{{ __quadlet_service_user.home }}/.config/containers/containers.conf.d/90-quadlet.conf"
+            mode: "0600"
+            backup: "{{ quadlet_backup }}"
+            validate: "{{ __quadlet_validate_config }}"
+          environment: "{{ __quadlet_user_systemd_env }}"
+
     - name: "QUADLET | Configure image builds"
       ansible.builtin.include_tasks: build.yml
       loop: "{{ __quadlet_user.builds | default([]) }}"

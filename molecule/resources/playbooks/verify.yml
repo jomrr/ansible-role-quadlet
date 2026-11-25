@@ -99,6 +99,10 @@
           lines:
             - OnCalendar=weekly
             - RandomizedDelaySec=900
+        - path: /var/lib/quadlet_vikunja/.config/containers/containers.conf.d/90-quadlet.conf
+          lines:
+            - '[engine]'
+            - 'healthcheck_events = false'
         - path: "{{ __quadlet_verify_vikunja_env }}"
           lines:
             - VIKUNJA_DATABASE_PASSWORD_FILE=/run/secrets/vikunja_db_password

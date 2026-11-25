@@ -2,6 +2,9 @@
 # role: quadlet
 # file: vars/main.yml
 
+# Load the candidate after the user's other Podman configuration without starting a container.
+__quadlet_validate_config: /usr/bin/env CONTAINERS_CONF_OVERRIDE=%s /usr/bin/podman --help
+
 # Internal packages required to render and run rootless Podman Quadlets.
 __quadlet_packages:
   - podman

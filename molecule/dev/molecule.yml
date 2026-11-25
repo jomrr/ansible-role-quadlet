@@ -66,6 +66,9 @@ provisioner:
         quadlet_users:
           - name: "quadlet_vikunja"
             uid: 901
+            containers_conf:
+              engine:
+                healthcheck_events: false
             builds:
               - name: "vaultwarden"
                 containerfile: "/srv/quadlet-managed-build/context/Containerfile"

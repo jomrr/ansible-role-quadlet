@@ -1,0 +1,15 @@
+{%- if value is mapping -%}
+{{ '{' }}
+{%- for key, value in value.items() -%}
+{{ key | to_json(ensure_ascii=false) }} = {% include '_toml_value.j2' %}{{ ', ' if not loop.last }}
+{%- endfor -%}
+{{ '}' }}
+{%- elif value is sequence and value is not string -%}
+[
+{%- for value in value -%}
+{% include '_toml_value.j2' %}{{ ', ' if not loop.last }}
+{%- endfor -%}
+]
+{%- else -%}
+{{ value | to_json(ensure_ascii=false) | replace('\x7f', '\\u007f') }}
+{%- endif -%}

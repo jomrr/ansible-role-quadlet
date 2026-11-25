@@ -19,6 +19,15 @@ quadlet_base_dir: /srv/containers
 # Base directory for default container data paths.
 # quadlet_base_dir: /opt/containers
 
+# Default containers.conf options grouped by Podman section; empty leaves the drop-in untouched.
+quadlet_containers_conf: {}
+# quadlet_containers_conf:
+#   engine:
+#     healthcheck_events: false
+
+# Whether to back up the previous managed containers.conf drop-in when replacing it.
+quadlet_backup: true
+
 # Rootless Podman service users and their builds, pods or containers.
 quadlet_users: []
 
