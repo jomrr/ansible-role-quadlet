@@ -1,0 +1,34 @@
+---
+# role: quadlet
+# file: tasks/containers_conf.yml
+
+# copy.validate would chmod the login user's upload as the unprivileged service user.
+- name: "containers_conf | Validate candidate with Podman"
+  become: true
+  become_user: "{{ __quadlet_user.name }}"
+  ansible.builtin.command:
+    argv: [/usr/bin/podman, --help]
+    stdin: "{{ __quadlet_conf_content }}"
+    stdin_add_newline: false
+  environment: "{{ __quadlet_user_systemd_env | combine({'CONTAINERS_CONF_OVERRIDE': '/dev/stdin'}) }}"
+  register: __quadlet_config_validation
+  changed_when: false
+  failed_when: __quadlet_config_validation.rc != 0
+  check_mode: false
+
+- name: "containers_conf | Create user drop-in directory"
+  become: true
+  become_user: "{{ __quadlet_user.name }}"
+  ansible.builtin.file:
+    path: "{{ __quadlet_conf_path | dirname }}"
+    state: directory
+    mode: "0700"
+
+- name: "containers_conf | Install validated drop-in"
+  become: true
+  become_user: "{{ __quadlet_user.name }}"
+  ansible.builtin.copy:
+    content: "{{ __quadlet_conf_content }}"
+    dest: "{{ __quadlet_conf_path }}"
+    mode: "0600"
+    backup: "{{ quadlet_backup }}"

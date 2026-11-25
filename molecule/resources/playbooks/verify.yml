@@ -11,6 +11,7 @@
     __quadlet_verify_vaultwarden_quadlet: /etc/containers/systemd/users/901/vaultwarden.container
     __quadlet_verify_vikunja_env: /srv/containers/vikunja/env/vikunja.env
     __quadlet_verify_vaultwarden_env: /srv/containers/vaultwarden/env/vaultwarden.env
+    __quadlet_verify_drop_in: /var/lib/quadlet_vikunja/.config/containers/containers.conf.d/90-quadlet.conf
     __quadlet_verify_vikunja_linger: /var/lib/systemd/linger/quadlet_vikunja
     __quadlet_verify_vaultwarden_exec_start_pre: >-
       ExecStartPre=/bin/bash -c 'until pg_isready -h POSTGRES_PUBLIC_IP -p 5432 -U vaultwarden; do sleep 10; done;'
@@ -44,6 +45,8 @@
           - __quadlet_verify_vaultwarden_quadlet_stat.stat.mode == '0644'
 
     - name: "QUADLET | Stat EnvironmentFiles"
+      become: true
+      become_user: quadlet_vikunja
       ansible.builtin.stat:
         path: "{{ item }}"
       register: __quadlet_verify_env_stats
@@ -60,7 +63,53 @@
       loop_control:
         label: "{{ item.stat.path }}"
 
+    - name: Record the installed drop-in before trying an invalid update
+      become: true
+      become_user: quadlet_vikunja
+      ansible.builtin.stat:
+        path: "{{ __quadlet_verify_drop_in }}"
+      register: __quadlet_original_drop_in
+
+    - name: Try updating the installed drop-in with an invalid Podman option
+      block:
+        - name: Apply an invalid replacement for the service user
+          ansible.builtin.include_role:
+            name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+          vars:
+            quadlet_users:
+              - name: quadlet_vikunja
+                uid: 901
+                containers_conf:
+                  engine:
+                    healthcheck_events: not-a-boolean
+
+        - name: Report unexpected acceptance of the invalid drop-in
+          ansible.builtin.fail:
+            msg: Podman accepted an invalid healthcheck_events value.
+      rescue:
+        - name: Verify Podman rejected the candidate for the expected reason
+          ansible.builtin.assert:
+            that: "'healthcheck_events' in ansible_failed_result.stderr | default('')"
+            quiet: true
+
+    - name: Read the drop-in metadata after rejection
+      become: true
+      become_user: quadlet_vikunja
+      ansible.builtin.stat:
+        path: "{{ __quadlet_verify_drop_in }}"
+      register: __quadlet_retained_drop_in
+
+    - name: Verify the service user retains the original private drop-in
+      ansible.builtin.assert:
+        that:
+          - __quadlet_retained_drop_in.stat.uid == 901
+          - __quadlet_retained_drop_in.stat.mode == '0600'
+          - __quadlet_retained_drop_in.stat.checksum == __quadlet_original_drop_in.stat.checksum
+        quiet: true
+
     - name: "QUADLET | Read generated files"
+      become: true
+      become_user: quadlet_vikunja
       ansible.builtin.slurp:
         src: "{{ __quadlet_file.path }}"
       register: __quadlet_verify_files
@@ -99,7 +148,7 @@
           lines:
             - OnCalendar=weekly
             - RandomizedDelaySec=900
-        - path: /var/lib/quadlet_vikunja/.config/containers/containers.conf.d/90-quadlet.conf
+        - path: "{{ __quadlet_verify_drop_in }}"
           lines:
             - '[engine]'
             - 'healthcheck_events = false'
@@ -146,6 +195,8 @@
         label: "{{ item.item }}"
 
     - name: "QUADLET | Stat forbidden home Quadlet paths"
+      become: true
+      become_user: quadlet_vikunja
       ansible.builtin.stat:
         path: "{{ item }}"
       register: __quadlet_verify_home_quadlets

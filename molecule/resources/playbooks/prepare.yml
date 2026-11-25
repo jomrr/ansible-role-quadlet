@@ -6,6 +6,11 @@
   hosts: all
   gather_facts: true
   tasks:
+    - name: Verify the connection uses the unprivileged image user
+      ansible.builtin.assert:
+        that: ansible_facts.effective_user_id == 1001
+        quiet: true
+
     - name: "QUADLET | Refresh APT metadata from the test image"
       become: true
       become_user: root
@@ -27,6 +32,13 @@
         repo: '*'
         runrefresh: true
       when: ansible_facts.pkg_mgr == 'zypper'
+
+    - name: Install ACL support for transfers between unprivileged users
+      become: true
+      become_user: root
+      ansible.builtin.package:
+        name: acl
+        state: present
 
     - name: "QUADLET | Ensure nested Podman configuration directory exists"
       become: true

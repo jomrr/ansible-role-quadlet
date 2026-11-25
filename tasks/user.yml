@@ -95,29 +95,17 @@
         name: "user@{{ __quadlet_service_user.uid }}.service"
         state: started
 
+    # Render once so the bytes Podman validates are exactly the bytes installed.
     - name: "user | Configure rootless Podman options"
+      ansible.builtin.include_tasks: containers_conf.yml
       vars:
         __quadlet_containers_conf: "{{ __quadlet_user.containers_conf | default(quadlet_containers_conf) }}"
+        __quadlet_conf_path: "{{ __quadlet_service_user.home }}/.config/containers/containers.conf.d/90-quadlet.conf"
+      loop: "{{ query('ansible.builtin.template', 'containers.conf.j2', template_vars={'template_destpath': __quadlet_conf_path}) }}"
+      loop_control:
+        loop_var: __quadlet_conf_content
+        label: "{{ __quadlet_user.name }}"
       when: __quadlet_containers_conf | length > 0
-      block:
-        - name: "user | Create user containers.conf drop-in directory"
-          become: true
-          become_user: "{{ __quadlet_user.name }}"
-          ansible.builtin.file:
-            path: "{{ __quadlet_service_user.home }}/.config/containers/containers.conf.d"
-            state: directory
-            mode: "0700"
-
-        - name: "user | Write user containers.conf drop-in"
-          become: true
-          become_user: "{{ __quadlet_user.name }}"
-          ansible.builtin.template:
-            src: containers.conf.j2
-            dest: "{{ __quadlet_service_user.home }}/.config/containers/containers.conf.d/90-quadlet.conf"
-            mode: "0600"
-            backup: "{{ quadlet_backup }}"
-            validate: "{{ __quadlet_validate_config }}"
-          environment: "{{ __quadlet_user_systemd_env }}"
 
     - name: "QUADLET | Configure image builds"
       ansible.builtin.include_tasks: build.yml

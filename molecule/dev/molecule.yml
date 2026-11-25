@@ -150,6 +150,8 @@ provisioner:
     prepare: "../resources/playbooks/prepare.yml"
     converge: "../resources/playbooks/converge.yml"
     verify: "../resources/playbooks/verify.yml"
+  connection_options:
+    ansible_user: "molecule"
 verifier:
   name: "ansible"
 scenario:
